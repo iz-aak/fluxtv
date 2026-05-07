@@ -1,19 +1,11 @@
-const ALLOWED_ORIGINS = [
-    'https://vyla.pages.dev',
-    'http://localhost:7860',
-    'http://169.254.162.163:7860',
-];
-
 const VYLA_API_BASE = 'https://missourimonster-vyla-api.hf.space';
 const VYLA_TIMEOUT = 30000;
 
 function setCors(origin) {
-    const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
     return {
-        'Access-Control-Allow-Origin': allowed,
+        'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type',
-        'Vary': 'Origin',
     };
 }
 
