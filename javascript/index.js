@@ -195,8 +195,8 @@ if (id) {
             hideLoader();
             if (result.type === 'json') {
                 play(result.data.url, true, id);
-                var title = 'Unknown';
-                if (result.data.meta) {
+                var title = result.data.title || 'Unknown';
+                if (!result.data.title && result.data.meta) {
                     var m = result.data.meta;
                     title = (m.title || m.name || 'Unknown');
                     if ('mediaSession' in navigator) {

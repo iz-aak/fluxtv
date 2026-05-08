@@ -26,6 +26,7 @@ export async function onRequest(context) {
     const origin = request.headers.get('origin') || '';
     const cors = setCors(origin);
     const TMDB_KEY = env.TMDB_API_KEY || '';
+    const workerOrigin = url.origin;
 
     if (request.method === 'OPTIONS') {
         return new Response(null, { status: 204, headers: cors });
@@ -68,39 +69,27 @@ export async function onRequest(context) {
             const elapsed = Date.now() - t0;
 
             if (!r.ok) {
-                return new Response(JSON.stringify(debugResponse(
-                    { error: 'vyla error' },
-                    { vylaUrl, vylaStatus: r.status, elapsed_ms: elapsed }
-                )), { status: 502, headers: { ...cors, 'Content-Type': 'application/json' } });
+                return new Response(JSON.stringify(debugResponse({ error: 'vyla error' }, { vylaUrl, vylaStatus: r.status, elapsed_ms: elapsed })), { status: 502, headers: { ...cors, 'Content-Type': 'application/json' } });
             }
 
             const data = await r.json();
-
-            if (!data.sources || !data.sources.length) {
-                return new Response(JSON.stringify(debugResponse(
-                    { error: 'no sources' },
-                    { vylaUrl, elapsed_ms: elapsed, vylaResponse: data }
-                )), { status: 502, headers: { ...cors, 'Content-Type': 'application/json' } });
+            if (data.sources?.length) {
             }
 
-            const sources = data.sources.map(s => ({
-                source: s.source,
-                label: s.label,
-                url: s.url.startsWith('/') ? VYLA_API_BASE + s.url : s.url,
-                timeout: 20000,
-            }));
+            if (!data.sources || !data.sources.length) {
+                return new Response(JSON.stringify(debugResponse({ error: 'no sources' }, { vylaUrl, elapsed_ms: elapsed, vylaResponse: data })), { status: 502, headers: { ...cors, 'Content-Type': 'application/json' } });
+            }
 
-            return new Response(JSON.stringify(debugResponse(
-                { sources },
-                { vylaUrl, elapsed_ms: elapsed, sourceCount: sources.length }
-            )), { headers: { ...cors, 'Content-Type': 'application/json' } });
+            const sources = data.sources.map(s => {
+                const abs = (s.url.startsWith('/') ? VYLA_API_BASE + s.url : s.url).replace('http://', 'https://');
+                return { source: s.source, label: s.label, url: abs, timeout: 20000 };
+            });
+
+            return new Response(JSON.stringify(debugResponse({ sources }, { vylaUrl, elapsed_ms: elapsed, sourceCount: sources.length })), { headers: { ...cors, 'Content-Type': 'application/json' } });
 
         } catch (err) {
             const elapsed = Date.now() - t0;
-            return new Response(JSON.stringify(debugResponse(
-                { error: err.message },
-                { vylaUrl, elapsed_ms: elapsed, errorName: err.name, timedOut: err.name === 'AbortError' }
-            )), { status: 500, headers: { ...cors, 'Content-Type': 'application/json' } });
+            return new Response(JSON.stringify(debugResponse({ error: err.message }, { vylaUrl, elapsed_ms: elapsed, errorName: err.name, timedOut: err.name === 'AbortError' })), { status: 500, headers: { ...cors, 'Content-Type': 'application/json' } });
         }
     }
 
@@ -122,13 +111,16 @@ export async function onRequest(context) {
         };
         try {
             const upstream = await fetch(target, { headers: proxyHeaders });
-            const responseHeaders = {
-                ...cors,
-                'Content-Type': upstream.headers.get('Content-Type') || 'application/octet-stream',
-                'Access-Control-Allow-Origin': cors['Access-Control-Allow-Origin'],
-            };
+            const ct = upstream.headers.get('Content-Type') || 'application/octet-stream';
+            const isM3u8 = ct.includes('mpegurl') || ct.includes('m3u8') || target.includes('.m3u8');
+            const responseHeaders = { ...cors, 'Content-Type': ct };
             const cd = upstream.headers.get('Content-Disposition');
             if (cd) responseHeaders['Content-Disposition'] = cd;
+            if (isM3u8) {
+                let text = await upstream.text();
+                text = text.replaceAll('http://missourimonster-vyla-api.hf.space', 'https://missourimonster-vyla-api.hf.space');
+                return new Response(text, { status: upstream.status, headers: responseHeaders });
+            }
             const cl = upstream.headers.get('Content-Length');
             if (cl) responseHeaders['Content-Length'] = cl;
             const cr = upstream.headers.get('Content-Range');
@@ -149,34 +141,39 @@ export async function onRequest(context) {
         const elapsed = Date.now() - t0;
 
         if (!r.ok) {
-            return new Response(JSON.stringify(debugResponse(
-                { error: 'vyla error ' + r.status },
-                { vylaUrl, vylaStatus: r.status, elapsed_ms: elapsed }
-            )), { status: 502, headers: { ...cors, 'Content-Type': 'application/json' } });
+            return new Response(JSON.stringify(debugResponse({ error: 'vyla error ' + r.status }, { vylaUrl, vylaStatus: r.status, elapsed_ms: elapsed })), { status: 502, headers: { ...cors, 'Content-Type': 'application/json' } });
         }
 
         const data = await r.json();
 
         if (!data.sources || !data.sources.length) {
-            return new Response(JSON.stringify(debugResponse(
-                { error: 'no stream' },
-                { vylaUrl, elapsed_ms: elapsed, vylaResponse: data }
-            )), { status: 500, headers: { ...cors, 'Content-Type': 'application/json' } });
+            return new Response(JSON.stringify(debugResponse({ error: 'no stream' }, { vylaUrl, elapsed_ms: elapsed, vylaResponse: data })), { status: 500, headers: { ...cors, 'Content-Type': 'application/json' } });
         }
 
         const first = data.sources[0];
-        const finalUrl = first.url.startsWith('/') ? VYLA_API_BASE + first.url : first.url;
+        const absUrl = (first.url.startsWith('/') ? VYLA_API_BASE + first.url : first.url).replace('http://', 'https://');
+        const finalUrl = absUrl;
+
+        let title = 'Unknown';
+        if (TMDB_KEY && q.id) {
+            try {
+                const tmdbUrl = q.s
+                    ? `https://api.themoviedb.org/3/tv/${q.id}/season/${q.s}/episode/${q.e || 1}?api_key=${TMDB_KEY}`
+                    : `https://api.themoviedb.org/3/movie/${q.id}?api_key=${TMDB_KEY}`;
+                const tr = await fetch(tmdbUrl);
+                const td = await tr.json();
+                title = td.title || td.name || td.original_title || td.original_name || 'Unknown';
+            } catch (err) {
+            }
+        }
 
         return new Response(JSON.stringify(debugResponse(
-            { url: finalUrl, source: first.source, meta: data.meta || null },
+            { url: finalUrl, source: first.source, meta: data.meta || null, title },
             { vylaUrl, elapsed_ms: elapsed, sourceCount: data.sources.length }
         )), { headers: { ...cors, 'Content-Type': 'application/json' } });
 
     } catch (e) {
         const elapsed = Date.now() - t0;
-        return new Response(JSON.stringify(debugResponse(
-            { error: e.message },
-            { vylaUrl, elapsed_ms: elapsed, errorName: e.name, timedOut: e.name === 'AbortError' }
-        )), { status: 500, headers: { ...cors, 'Content-Type': 'application/json' } });
+        return new Response(JSON.stringify(debugResponse({ error: e.message }, { vylaUrl, elapsed_ms: elapsed, errorName: e.name, timedOut: e.name === 'AbortError' })), { status: 500, headers: { ...cors, 'Content-Type': 'application/json' } });
     }
 }
