@@ -1631,12 +1631,6 @@ function play(raw, skipProxy, videoId) {
         }
     }
 
-    var lsBack = document.getElementById('landscape-back-btn');
-    if (lsBack) lsBack.addEventListener('click', function () {
-        document.getElementById('settings-modal-wrap').classList.remove('open');
-        document.getElementById('settings-overlay-backdrop').classList.remove('open');
-    });
-
     function showSettingsView(name) {
         document.querySelectorAll('.settings-view').forEach(function (el) {
             el.classList.remove('active');
@@ -1868,7 +1862,9 @@ function play(raw, skipProxy, videoId) {
             overlayOn: false,
             members: 1,
             syncInterval: null,
-            lockControls: false
+            lockControls: false,
+            disconnected: false,
+            lastRoomCode: null
         };
 
         var wpMainView = document.getElementById('wp-main-view');
@@ -1881,6 +1877,7 @@ function play(raw, skipProxy, videoId) {
         var wpCodeInput = document.getElementById('wp-code-input');
         var wpRoomCode = document.getElementById('wp-room-code');
         var wpLeaveBtn = document.getElementById('wp-leave-btn');
+        var wpReconnectBtn = document.getElementById('wp-reconnect-btn');
         var wpCodeDisplay = document.getElementById('wp-code-display');
         var wpMembersList = document.getElementById('wp-members-list');
         var wpOverlayToggle = document.getElementById('wp-overlay-toggle');
@@ -2116,12 +2113,20 @@ function play(raw, skipProxy, videoId) {
                     wpState.active = true;
                     wpState.isHost = false;
                     wpState.roomCode = cleanCode;
+                    wpState.lastRoomCode = cleanCode;
+                    wpState.disconnected = false;
                     wpState.members = 2;
                     if (wpRoomCode) wpRoomCode.textContent = cleanCode;
                     updateMembersLabel();
                     showWpView('hosting');
                     updateWatchPartyOverlay();
                     setGuestLock(true);
+                    if (wpReconnectBtn) {
+                        wpReconnectBtn.style.display = 'none';
+                    }
+                    if (wpLeaveBtn) {
+                        wpLeaveBtn.style.display = 'block';
+                    }
                 });
 
                 conn.on('data', function (msg) {
@@ -2130,8 +2135,15 @@ function play(raw, skipProxy, videoId) {
 
                 conn.on('close', function () {
                     if (!wpState.active) return;
+                    wpState.disconnected = true;
+                    wpState.lastRoomCode = wpState.roomCode;
                     showWpError('Host disconnected.');
-                    leaveParty();
+                    if (wpReconnectBtn) {
+                        wpReconnectBtn.style.display = 'block';
+                    }
+                    if (wpLeaveBtn) {
+                        wpLeaveBtn.style.display = 'none';
+                    }
                 });
 
                 conn.on('error', function () {
@@ -2160,7 +2172,15 @@ function play(raw, skipProxy, videoId) {
             wpState.isHost = false;
             wpState.roomCode = null;
             wpState.members = 1;
+            wpState.disconnected = false;
+            wpState.lastRoomCode = null;
             setGuestLock(false);
+            if (wpReconnectBtn) {
+                wpReconnectBtn.style.display = 'none';
+            }
+            if (wpLeaveBtn) {
+                wpLeaveBtn.style.display = 'block';
+            }
             showWpView('main');
             updateWatchPartyOverlay();
         }
@@ -2214,6 +2234,24 @@ function play(raw, skipProxy, videoId) {
         });
 
         wpLeaveBtn.addEventListener('click', function () { leaveParty(); haptic(6); });
+
+        if (wpReconnectBtn) {
+            wpReconnectBtn.addEventListener('click', function () {
+                if (wpState.disconnected && wpState.lastRoomCode) {
+                    wpState.disconnected = false;
+                    if (wpReconnectBtn) {
+                        wpReconnectBtn.style.display = 'none';
+                    }
+                    if (wpLeaveBtn) {
+                        wpLeaveBtn.style.display = 'block';
+                    }
+
+                    wpCodeInput.value = wpState.lastRoomCode;
+                    wpJoinConfirmBtn.click();
+                }
+                haptic(6);
+            });
+        }
 
         wpCodeDisplay.addEventListener('click', function () {
             var link = location.origin + location.pathname + location.search + '&wp=' + wpState.roomCode;

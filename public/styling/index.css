@@ -570,7 +570,6 @@ video {
     flex-shrink: 0;
     background: none;
     border: none;
-    padding: 0;
     margin: 0;
     cursor: pointer;
     outline: none;
@@ -582,6 +581,8 @@ video {
     opacity: 0.85;
     transition: opacity 0.2s ease, transform 0.25s var(--ease-smooth);
     border-radius: 50%;
+    height: 45px;
+    width: 45px;
 }
 
 .ctrl-btn i {
@@ -732,6 +733,7 @@ video {
     -webkit-backdrop-filter: blur(8px);
     background: var(--menu-bg);
     border-radius: 100px;
+    padding: 0px 10px;
 }
 
 #time-row {
@@ -749,7 +751,7 @@ video {
     background: var(--menu-bg);
     border-radius: 100px;
     height: 40px;
-    padding: 8px 12px;
+    padding: 8px 15px;
 }
 
 #title-bar {
@@ -1485,29 +1487,6 @@ video {
     transform: scale(0.97);
 }
 
-#landscape-back-btn {
-    display: none;
-    align-items: center;
-    gap: var(--space-sm);
-    padding: var(--space-md) var(--space-lg) var(--space-xs);
-    cursor: pointer;
-    color: var(--white-60);
-    font-size: 14px;
-    font-weight: 500;
-    background: none;
-    border: none;
-    text-align: left;
-    font-family: var(--font);
-}
-
-#landscape-back-btn:hover {
-    color: var(--white-85);
-}
-
-#landscape-back-btn i {
-    font-size: 13px;
-}
-
 @keyframes viewFadeIn {
     from {
         opacity: 0;
@@ -1601,10 +1580,6 @@ video {
         font-size: 13px;
         font-weight: 400;
         color: var(--white-60);
-    }
-
-    #landscape-back-btn {
-        display: flex;
     }
 }
 
@@ -2283,7 +2258,6 @@ video {
 
 #settings-view-sources,
 #settings-view-subtitles,
-#settings-view-watchparty,
 #settings-view-segments {
     flex-direction: column;
     min-height: 340px;
@@ -2449,6 +2423,9 @@ video {
     padding: var(--space-xs) var(--space-sm) var(--space-md);
     overflow-y: auto;
     flex: 1;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%);
+    scrollbar-width: none;
 }
 
 .sub-lang-group-view {
@@ -2502,6 +2479,7 @@ video {
 #sub-lang-groups {
     overflow-y: auto;
     flex: 1;
+    max-height: 300px;
 }
 
 #sub-entries-title {
@@ -3345,6 +3323,7 @@ video {
     margin-bottom: var(--space-sm);
     cursor: pointer;
     transition: background 0.18s;
+    color: var(--white);
 }
 
 .wp-code-display:hover {
@@ -3409,6 +3388,32 @@ video {
 
 .wp-btn-leave:hover {
     background: rgba(180, 30, 45, 0.85);
+}
+
+.wp-btn-reconnect {
+    width: 100%;
+    padding: 15px;
+    border-radius: var(--space-md);
+    background: var(--white);
+    color: var(--black);
+    border: none;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: background 0.18s;
+    margin-bottom: var(--space-md);
+}
+
+.wp-btn-reconnect:hover {
+    background: rgba(76, 175, 80, 0.85);
+}
+
+.wp-btn-reconnect i {
+    font-size: 12px;
 }
 
 .seg-content {
