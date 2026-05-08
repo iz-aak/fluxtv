@@ -7,6 +7,7 @@ function initLoaderBackdrop() {
 
     var p = new URLSearchParams(location.search);
     var id = p.get('id');
+    if (!id) return;
 
     var isTv = !!p.get('s');
     var tmdbUrl = isTv ? '/api?tmdb_tv=1&id=' + id : '/api?tmdb_movie=1&id=' + id;

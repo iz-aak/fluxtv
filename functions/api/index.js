@@ -26,7 +26,6 @@ export async function onRequest(context) {
     const origin = request.headers.get('origin') || '';
     const cors = setCors(origin);
     const TMDB_KEY = env.TMDB_API_KEY || '';
-    const workerOrigin = url.origin;
 
     if (request.method === 'OPTIONS') {
         return new Response(null, { status: 204, headers: cors });
@@ -35,6 +34,9 @@ export async function onRequest(context) {
     if ('tmdb_season' in q || 'tmdb_show' in q || 'tmdb_movie' in q || 'tmdb_tv' in q) {
         if (!TMDB_KEY) {
             return new Response(JSON.stringify({ error: 'no key' }), { status: 500, headers: { ...cors, 'Content-Type': 'application/json' } });
+        }
+        if (!q.id || q.id === 'null') {
+            return new Response(JSON.stringify({ error: 'missing id' }), { status: 400, headers: { ...cors, 'Content-Type': 'application/json' } });
         }
         let tmdbUrl;
         if ('tmdb_season' in q) {
