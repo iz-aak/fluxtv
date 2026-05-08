@@ -125,7 +125,7 @@ function showNowPlayingToast(title) {
 
 
 if (id) {
-    var apiUrl = 'https://missourimonster-vyla-api.hf.space/api/movie?' + (s ? 'id=' + id + '&s=' + s + '&e=' + (e || '1') : 'id=' + id);
+    var apiUrl = 'https://missourimonster-vyla-api.hf.space/api/movie?' + (s ? 'id=' + id + '&season=' + s + '&episode=' + (e || '1') : 'id=' + id);
 
     (function () {
         var loaderEl = document.getElementById('loader');
@@ -139,7 +139,7 @@ if (id) {
         if (loaderBgEl) loaderBgEl.appendChild(spinnerEl);
         else if (loaderEl) loaderEl.appendChild(spinnerEl);
 
-        fetch('https://missourimonster-vyla-api.hf.space/api/movie?id=' + id + (s ? '&s=' + s + '&e=' + (e || '1') : ''))
+        fetch('https://missourimonster-vyla-api.hf.space/api/movie?id=' + id + (s ? '&season=' + s + '&episode=' + (e || '1') : ''))
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (data.sources && data.sources.length) {
