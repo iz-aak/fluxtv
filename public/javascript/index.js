@@ -11,7 +11,7 @@ function initLoaderBackdrop() {
     var id = p.get('id');
     if (!id) return;
 
-    var isTv = !!p.get('s');
+    var isTv = !!p.get('season');
     var tmdbUrl = isTv ? 'https://api.themoviedb.org/3/tv/' + id + '?api_key=' + TMDB_KEY : 'https://api.themoviedb.org/3/movie/' + id + '?api_key=' + TMDB_KEY;
 
     fetch(tmdbUrl)
@@ -109,7 +109,7 @@ document.addEventListener('keydown', function (e) {
 });
 
 var p = new URLSearchParams(location.search);
-var id = p.get('id'), s = p.get('s'), e = p.get('e'), ap = p.get('ap');
+var id = p.get('id'), s = p.get('season'), e = p.get('episode'), ap = p.get('ap');
 
 function showNowPlayingToast(title) {
     var toast = document.getElementById('now-playing-toast');
@@ -125,7 +125,7 @@ function showNowPlayingToast(title) {
 
 
 if (id) {
-    var apiUrl = 'https://missourimonster-vyla-api.hf.space/api/movie?' + (s ? 'id=' + id + '&season=' + s + '&episode=' + (e || '1') : 'id=' + id);
+    var apiUrl = 'https://missourimonster-vyla-api.hf.space/' + (s ? 'api/tv?id=' + id + '&season=' + s + '&episode=' + (e || '1') : 'api/movie?id=' + id);
 
     (function () {
         var loaderEl = document.getElementById('loader');
@@ -139,7 +139,7 @@ if (id) {
         if (loaderBgEl) loaderBgEl.appendChild(spinnerEl);
         else if (loaderEl) loaderEl.appendChild(spinnerEl);
 
-        fetch('https://missourimonster-vyla-api.hf.space/api/movie?id=' + id + (s ? '&season=' + s + '&episode=' + (e || '1') : ''))
+        fetch('https://missourimonster-vyla-api.hf.space/' + (s ? 'api/tv?id=' + id + '&season=' + s + '&episode=' + (e || '1') : 'api/movie?id=' + id))
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (data.sources && data.sources.length) {
@@ -289,7 +289,7 @@ if (id) {
     var errText = document.querySelector('.err-text');
     if (errText) {
         errText.innerHTML = 'No ID Provided';
-        document.querySelector('.err-text + *') && (document.querySelector('.err-text').insertAdjacentHTML('afterend', '<div class="err-sub">Add an <code>?id=</code> parameter to the URL — e.g. <code>?id=550</code> for a movie or <code>?id=1396&s=1&e=1</code> for a show.</div>'));
+        document.querySelector('.err-text + *') && (document.querySelector('.err-text').insertAdjacentHTML('afterend', '<div class="err-sub">Add an <code>?id=</code> parameter to the URL — e.g. <code>?id=550</code> for a movie or <code>?id=1396&season=1&episode=1</code> for a show.</div>'));
     }
     document.getElementById('error-screen').classList.add('show');
 }
@@ -988,7 +988,7 @@ function play(raw, skipProxy, videoId) {
             if (v.readyState >= 2) return;
             retryCount++;
             showBuffering();
-            var endpoint = 'https://missourimonster-vyla-api.hf.space/api/movie?' + (s ? 'id=' + id + '&s=' + s + '&e=' + (e || '1') : 'id=' + id);
+            var endpoint = 'https://missourimonster-vyla-api.hf.space/' + (s ? 'api/tv?id=' + id + '&season=' + s + '&episode=' + (e || '1') : 'api/movie?id=' + id);
             fetch(endpoint)
                 .then(function (r) { return r.json(); })
                 .then(function (d) {
@@ -2627,7 +2627,7 @@ function play(raw, skipProxy, videoId) {
             showSrcFailed(detailBody);
         }, timeout);
 
-        var testUrl = source.url || ('https://missourimonster-vyla-api.hf.space/api/movie?' + (s ? 'id=' + id + '&s=' + s + '&e=' + (e || '1') : 'id=' + id));
+        var testUrl = source.url || ('https://missourimonster-vyla-api.hf.space/' + (s ? 'api/tv?id=' + id + '&season=' + s + '&episode=' + (e || '1') : 'api/movie?id=' + id));
         fetch(testUrl, { method: 'HEAD' })
             .then(function (r) {
                 if (cancelled) return;
@@ -2670,7 +2670,7 @@ function play(raw, skipProxy, videoId) {
     function fetchSources() {
         var sourcesOpts = document.getElementById('sources-opts');
         if (sourcesOpts) sourcesOpts.innerHTML = '<div class="source-skeleton"><div class="source-skel-item"></div><div class="source-skel-item"></div><div class="source-skel-item"></div></div>';
-        var endpoint = s ? 'https://missourimonster-vyla-api.hf.space/api/movie?id=' + id + '&s=' + s + '&e=' + (e || '1') : 'https://missourimonster-vyla-api.hf.space/api/movie?id=' + id;
+        var endpoint = s ? 'https://missourimonster-vyla-api.hf.space/api/tv?id=' + id + '&season=' + s + '&episode=' + (e || '1') : 'https://missourimonster-vyla-api.hf.space/api/movie?id=' + id;
         fetch(endpoint)
             .then(function (r) { return r.json(); })
             .then(function (d) {
@@ -2992,11 +2992,11 @@ function play(raw, skipProxy, videoId) {
             var nextE = parseInt(e || '1') + 1;
             var nextS = parseInt(s);
 
-            fetch('https://missourimonster-vyla-api.hf.space/api/movie?id=' + id + '&s=' + nextS + '&e=' + nextE)
+            fetch('https://missourimonster-vyla-api.hf.space/api/tv?id=' + id + '&season=' + nextS + '&episode=' + nextE)
                 .then(function (r) { return r.json(); })
                 .then(function (d) {
                     if (d.error || !d.url) {
-                        fetch('https://missourimonster-vyla-api.hf.space/api/movie?id=' + id + '&s=' + (nextS + 1) + '&e=1')
+                        fetch('https://missourimonster-vyla-api.hf.space/api/tv?id=' + id + '&season=' + (nextS + 1) + '&episode=1')
                             .then(function (r) { return r.json(); })
                             .then(function (d2) {
                                 if (d2.error || !d2.url) return;
@@ -3014,7 +3014,7 @@ function play(raw, skipProxy, videoId) {
                                         toast.classList.remove('enter');
                                         toast.classList.add('exit');
                                         setTimeout(function () {
-                                            location.href = location.pathname + '?id=' + id + '&s=' + (nextS + 1) + '&e=1&ap=1';
+                                            location.href = location.pathname + '?id=' + id + '&season=' + (nextS + 1) + '&episode=1&ap=1';
                                         }, 800);
                                     }, 3800);
                                 }, 400);
@@ -3036,7 +3036,7 @@ function play(raw, skipProxy, videoId) {
                             toast.classList.remove('enter');
                             toast.classList.add('exit');
                             setTimeout(function () {
-                                location.href = location.pathname + '?id=' + id + '&s=' + nextS + '&e=' + nextE + '&ap=1';
+                                location.href = location.pathname + '?id=' + id + '&season=' + nextS + '&episode=' + nextE + '&ap=1';
                             }, 800);
                         }, 3800);
                     }, 400);
@@ -3054,23 +3054,23 @@ function play(raw, skipProxy, videoId) {
         var nextS = parseInt(s);
 
         setTimeout(function () {
-            fetch('https://missourimonster-vyla-api.hf.space/api/movie?id=' + id + '&s=' + nextS + '&e=' + nextE)
+            fetch('https://missourimonster-vyla-api.hf.space/api/tv?id=' + id + '&season=' + nextS + '&episode=' + nextE)
                 .then(function (r) { return r.json(); })
                 .then(function (d) {
                     if (d.error || !d.url) {
-                        return fetch('https://missourimonster-vyla-api.hf.space/api/movie?id=' + id + '&s=' + (nextS + 1) + '&e=1')
+                        return fetch('https://missourimonster-vyla-api.hf.space/api/tv?id=' + id + '&season=' + (nextS + 1) + '&episode=1')
                             .then(function (r) { return r.json(); })
                             .then(function (d2) {
                                 if (d2.error || !d2.url) return;
                                 var t = d2.meta ? (d2.meta.title || d2.meta.name || 'Unknown') : 'Unknown';
                                 nextEpLabel.textContent = 'S' + (nextS + 1) + ' E1 \u00b7 ' + t;
-                                nextEpHref = location.pathname + '?id=' + id + '&s=' + (nextS + 1) + '&e=1&ap=1';
+                                nextEpHref = location.pathname + '?id=' + id + '&season=' + (nextS + 1) + '&episode=1&ap=1';
                                 nextEpReady = true;
                             });
                     }
                     var t = d.meta ? (d.meta.title || d.meta.name || 'Unknown') : 'Unknown';
                     nextEpLabel.textContent = 'S' + nextS + ' E' + nextE + ' \u00b7 ' + t;
-                    nextEpHref = location.pathname + '?id=' + id + '&s=' + nextS + '&e=' + nextE + '&ap=1';
+                    nextEpHref = location.pathname + '?id=' + id + '&season=' + nextS + '&episode=' + nextE + '&ap=1';
                     nextEpReady = true;
                 })
                 .catch(function () { });
@@ -3240,7 +3240,7 @@ function play(raw, skipProxy, videoId) {
                         if (!isCurrent) {
                             item.addEventListener('click', function () {
                                 haptic(10);
-                                location.href = location.pathname + '?id=' + id + '&s=' + season + '&e=' + ep.episode_number + '&ap=1';
+                                location.href = location.pathname + '?id=' + id + '&season=' + season + '&episode=' + ep.episode_number + '&ap=1';
                             });
                         }
                         newList.appendChild(item);
