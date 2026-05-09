@@ -110,6 +110,10 @@ document.addEventListener('keydown', function (e) {
 
 var p = new URLSearchParams(location.search);
 var id = p.get('id'), s = p.get('season'), e = p.get('episode'), ap = p.get('ap');
+var _initialFetchPromise = null;
+var sources = [];
+var currentSourceIndex = 0;
+var sourcesLoaded = false;
 
 function showNowPlayingToast(title) {
     var toast = document.getElementById('now-playing-toast');
@@ -164,39 +168,28 @@ if (id) {
     })();
 
     function fetchWithRetry(attempts) {
-        return fetch(apiUrl)
-            .then(function (r) {
-                var ct = r.headers.get('Content-Type') || '';
-                if (ct.includes('application/json')) {
-                    return r.json().then(function (d) {
-                        if (d.error) {
-                            throw new Error(d.error);
-                        }
-                        var url = d.url;
-                        if (!url && d.sources && d.sources.length > 0) {
-                            url = d.sources[0].url;
-                        }
-                        if (!url) {
-                            throw new Error('no url');
-                        }
-                        if (url.startsWith('/api')) {
-                            url = 'https://missourimonster-vyla-api.hf.space' + url;
-                        }
-                        d.url = url;
-                        return { type: 'json', data: d };
-                    });
-                } else if (ct.includes('mpegurl') || ct.includes('m3u8')) {
-                    return { type: 'm3u8', url: apiUrl };
-                } else {
-                    throw new Error('unexpected content type');
+        if (!_initialFetchPromise) {
+            _initialFetchPromise = fetch(apiUrl).then(function (r) { return r.json(); });
+        }
+        return _initialFetchPromise
+            .then(function (d) {
+                if (d.error) throw new Error(d.error);
+                if (d.sources && d.sources.length > 0) {
+                    sources = d.sources;
+                    sourcesLoaded = true;
                 }
+                var url = d.url;
+                if (!url && d.sources && d.sources.length > 0) url = d.sources[0].url;
+                if (!url) throw new Error('no url');
+                if (url.startsWith('/api')) url = 'https://missourimonster-vyla-api.hf.space' + url;
+                d.url = url;
+                return { type: 'json', data: d };
             })
             .catch(function (err) {
+                _initialFetchPromise = null;
                 if (attempts > 0) {
                     return new Promise(function (resolve) {
-                        setTimeout(function () {
-                            resolve(fetchWithRetry(attempts - 1));
-                        }, 500);
+                        setTimeout(function () { resolve(fetchWithRetry(attempts - 1)); }, 500);
                     });
                 }
                 throw err;
@@ -208,6 +201,10 @@ if (id) {
             shouldHideLoader = true;
             hideLoader();
             if (result.type === 'json') {
+                if (result.data.sources && result.data.sources.length > 0) {
+                    sources = result.data.sources;
+                    sourcesLoaded = true;
+                }
                 var isTv = !!s;
                 var tmdbUrl = isTv ? 'https://api.themoviedb.org/3/tv/' + id + '?api_key=' + TMDB_KEY + '&append_to_response=images' : 'https://api.themoviedb.org/3/movie/' + id + '?api_key=' + TMDB_KEY + '&append_to_response=images';
 
@@ -419,6 +416,42 @@ function fetchSubWithFallback(sub) {
         return fetchSubDirect(sub);
     });
 }
+
+var langMap = {};
+var getLangCode, flagImg;
+
+fetch('https://restcountries.com/v3.1/all?fields=cca2,languages')
+    .then(function (res) {
+        return res.json();
+    })
+    .then(function (data) {
+        if (!Array.isArray(data)) {
+            console.error('Countries API response is not an array:', data);
+            return;
+        }
+        for (const country of data) {
+            const cCode = country.cca2?.toLowerCase();
+            const languages = country.languages || {};
+
+            for (const [_, langName] of Object.entries(languages)) {
+                const key = langName.toLowerCase();
+                if (!langMap[key]) langMap[key] = new Set();
+                langMap[key].add(cCode);
+            }
+        }
+
+        getLangCode = function (label) {
+            if (!label) return null;
+            var key = label.toLowerCase().replace(/[^a-z]/g, ' ').trim().split(' ')[0];
+            return langMap[key] ? Array.from(langMap[key])[0] : null;
+        };
+
+        flagImg = function (code) {
+            if (!code) return '<span style="width:26px;height:20px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa-solid fa-globe" style="font-size:13px;color:rgba(255,255,255,0.3);"></i></span>';
+            return '<img class="slg-flag" src="https://flagcdn.com/20x15/' + code + '.png" width="26" height="20" alt="">';
+        };
+
+    });
 
 function play(raw, skipProxy, videoId) {
     (function () {
@@ -685,11 +718,11 @@ function play(raw, skipProxy, videoId) {
     }
 
     function syncIcon() {
-        playIco.className = v.paused ? 'fa-solid fa-play' : 'fa-solid fa-pause';
+        playIco.className = v.paused ? 'fa-solid fa-pause' : 'fa-solid fa-play';
     }
 
     function flashCenter() {
-        ci.className = v.paused ? 'fa-solid fa-play' : 'fa-solid fa-pause';
+        ci.className = v.paused ? 'fa-solid fa-pause' : 'fa-solid fa-play';
         if (v.paused) {
             ci.classList.add('paused');
             centerFlash.classList.add('paused');
@@ -984,33 +1017,17 @@ function play(raw, skipProxy, videoId) {
 
     function scheduleRetry() {
         if (retryCount >= maxRetries) return;
-        var delay = 800;
-
         retryTimer = setTimeout(function () {
             if (!isNaN(v.duration) && v.duration > 0) return;
             if (v.readyState >= 2) return;
             retryCount++;
             showBuffering();
-            var endpoint = 'https://missourimonster-vyla-api.hf.space/' + (s ? 'api/tv?id=' + id + '&season=' + s + '&episode=' + (e || '1') : 'api/movie?id=' + id);
-            fetch(endpoint)
-                .then(function (r) { return r.json(); })
-                .then(function (d) {
-                    if (!d.url) { scheduleRetry(); return; }
-                    var newSrc = d.url; if (Hls.isSupported()) {
-                        showBufferingImmediate();
-                        hls.stopLoad();
-                        hls.detachMedia();
-                        hls.loadSource(newSrc);
-                        hls.attachMedia(v);
-                    } else {
-                        showBufferingImmediate();
-                        v.src = newSrc;
-                        v.load();
-                    }
-                    scheduleRetry();
-                })
-                .catch(function () { scheduleRetry(); });
-        }, delay);
+            if (Hls.isSupported()) {
+                hls.stopLoad();
+                hls.startLoad();
+            }
+            scheduleRetry();
+        }, 800);
     }
 
     function startDurationPoll() {
@@ -1420,46 +1437,6 @@ function play(raw, skipProxy, videoId) {
             });
     }
 
-    var langCodeMap = {
-        english: 'gb', arabic: 'sa', bosnian: 'ba', bulgarian: 'bg', brazilian: 'br', chinese: 'cn', croatian: 'hr',
-        czech: 'cz', danish: 'dk', dutch: 'nl', finnish: 'fi', french: 'fr', german: 'de', greek: 'gr',
-        hebrew: 'il', hindi: 'in', hungarian: 'hu', indonesian: 'id', italian: 'it', japanese: 'jp',
-        korean: 'kr', malay: 'my', norwegian: 'no', persian: 'ir', polish: 'pl', portuguese: 'pt',
-        romanian: 'ro', russian: 'ru', serbian: 'rs', slovak: 'sk', slovenian: 'si', spanish: 'es',
-        swedish: 'se', thai: 'th', turkish: 'tr', ukrainian: 'ua', vietnamese: 'vn', catalan: 'es',
-        latvian: 'lv', lithuanian: 'lt', estonian: 'ee', albanian: 'al', macedonian: 'mk',
-        afrikaans: 'za', azerbaijani: 'az', basque: 'es', belarusian: 'by', bengali: 'bd',
-        georgian: 'ge', icelandic: 'is', irish: 'ie', kazakh: 'kz', khmer: 'kh',
-        lao: 'la', mongolian: 'mn', nepali: 'np', punjabi: 'pk', sinhala: 'lk',
-        swahili: 'ke', tamil: 'in', telugu: 'in', urdu: 'pk', uzbek: 'uz',
-        amharic: 'et', armenian: 'am', assamese: 'in', aymara: 'bo', bambara: 'ml',
-        bashkir: 'ru', breton: 'fr', burmese: 'mm', chechen: 'ru', chichewa: 'mw',
-        corsican: 'fr', divehi: 'mv', dogri: 'in', esperanto: 'eu', ewe: 'gh',
-        faroese: 'fo', fijian: 'fj', frisian: 'nl', galician: 'es', guarani: 'py',
-        gujarati: 'in', haitian_creole: 'ht', hausa: 'ng', hawaiian: 'us', hmong: 'cn',
-        igbo: 'ng', kalaallisut: 'gl', kannada: 'in', kashmiri: 'in', kinyarwanda: 'rw',
-        kirghiz: 'kg', kurdish: 'iq', luxembourgish: 'lu', madurese: 'id', maithili: 'in',
-        malagasy: 'mg', maltese: 'mt', maori: 'nz', marathi: 'in', meiteilon: 'in',
-        minangkabau: 'id', kalaallisut_greenlandic: 'gl', nahuatl: 'mx', navajo: 'us', ndonga: 'na',
-        occitan: 'fr', odia: 'in', oromo: 'et', ossetian: 'ru', pali: 'in',
-        pashto: 'af', quechua: 'pe', romansh: 'ch', samoan: 'ws', sango: 'cf',
-        sanskrit: 'in', sardinian: 'it', scots_gaelic: 'gb', shona: 'zw', sindhi: 'pk',
-        somali: 'so', sundanese: 'id', tatar: 'ru', tibetan: 'cn', tigrinya: 'er',
-        tsonga: 'za', turkmen: 'tm', twi: 'gh', uighur: 'cn', venda: 'za',
-        wolof: 'sn', xhosa: 'za', yiddish: 'il', yoruba: 'ng', zulu: 'za'
-    };
-
-    function getLangCode(label) {
-        if (!label) return null;
-        var key = label.toLowerCase().replace(/[^a-z]/g, ' ').trim().split(' ')[0];
-        return langCodeMap[key] || null;
-    }
-
-    function flagImg(code) {
-        if (!code) return '<span style="width:26px;height:20px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa-solid fa-globe" style="font-size:13px;color:rgba(255,255,255,0.3);"></i></span>';
-        return '<img class="slg-flag" src="https://flagcdn.com/20x15/' + code + '.png" width="26" height="20" alt="">';
-    }
-
     document.getElementById('lbl-subtitle').textContent = 'Off';
 
     fetch(vylaEndpoint)
@@ -1776,7 +1753,7 @@ function play(raw, skipProxy, videoId) {
                 cfg.label +
                 (found.filter(function (f) { return f.type === item.type; }).length > 1 ? ' ' + (item.idx + 1) : '') +
                 '</div>' +
-                '<div class="seg-time">' + startStr + ' → ' + endStr + '</div>' +
+                '<div class="seg-time">' + startStr + ' - ' + endStr + '</div>' +
                 '</div>' +
                 '</div>';
         });
@@ -2581,9 +2558,6 @@ function play(raw, skipProxy, videoId) {
         }
     }
 
-    var sources = [];
-    var currentSourceIndex = 0;
-
     function buildSourceList() {
         var sourcesOpts = document.getElementById('sources-opts');
         if (!sourcesOpts) return;
@@ -2712,22 +2686,36 @@ function play(raw, skipProxy, videoId) {
     }
 
     function fetchSources() {
+        if (sourcesLoaded && sources.length > 0) {
+            buildSourceList();
+            return;
+        }
+        if (_initialFetchPromise) {
+            _initialFetchPromise.then(function (d) {
+                if (d.sources && d.sources.length > 0) {
+                    sources = d.sources;
+                    sourcesLoaded = true;
+                }
+                buildSourceList();
+            }).catch(function () { });
+            return;
+        }
         var sourcesOpts = document.getElementById('sources-opts');
         if (sourcesOpts) sourcesOpts.innerHTML = '<div class="source-skeleton"><div class="source-skel-item"></div><div class="source-skel-item"></div><div class="source-skel-item"></div></div>';
         var endpoint = s ? 'https://missourimonster-vyla-api.hf.space/api/tv?id=' + id + '&season=' + s + '&episode=' + (e || '1') : 'https://missourimonster-vyla-api.hf.space/api/movie?id=' + id;
-        fetch(endpoint)
-            .then(function (r) { return r.json(); })
-            .then(function (d) {
-                if (!d.sources || !d.sources.length) return;
+        _initialFetchPromise = fetch(endpoint).then(function (r) { return r.json(); });
+        _initialFetchPromise.then(function (d) {
+            if (d.sources && d.sources.length > 0) {
                 sources = d.sources;
+                sourcesLoaded = true;
                 currentSourceIndex = 0;
                 var playingUrl = src;
                 for (var i = 0; i < sources.length; i++) {
                     if (sources[i].url === playingUrl) { currentSourceIndex = i; break; }
                 }
-                buildSourceList();
-            })
-            .catch(function () { });
+            }
+            buildSourceList();
+        }).catch(function () { });
     }
 
     fetchSources();

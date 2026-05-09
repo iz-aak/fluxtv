@@ -30,7 +30,7 @@
     --menu-blur-strong: blur(20px) saturate(3);
     --menu-radius: 12px;
 
-    --ctrl-size: 40px;
+    --ctrl-size: 45px;
     --ctrl-size-sm: 36px;
     --ctrl-icon-size: 18px;
     --thumb-size: 16px;
@@ -425,7 +425,7 @@ video {
 }
 
 #center-flash i {
-    font-size: 2.5rem;
+    font-size: 2rem;
     color: var(--white);
     opacity: 0;
     transform: scale(0.4);
@@ -573,16 +573,14 @@ video {
     margin: 0;
     cursor: pointer;
     outline: none;
-    width: var(--ctrl-size);
-    height: var(--ctrl-size);
     display: flex;
     align-items: center;
     justify-content: center;
     opacity: 0.85;
     transition: opacity 0.2s ease, transform 0.25s var(--ease-smooth);
     border-radius: 50%;
-    height: 45px;
-    width: 45px;
+    height: var(--ctrl-size);
+    width: var(--ctrl-size);
 }
 
 .ctrl-btn i {
@@ -733,25 +731,24 @@ video {
     -webkit-backdrop-filter: blur(8px);
     background: var(--menu-bg);
     border-radius: 100px;
-    padding: 0px 10px;
 }
 
 #time-row {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 4px;
     font-size: 0.85rem;
     font-weight: 500;
     color: var(--white-85);
     letter-spacing: 0.04em;
     line-height: 1;
-    margin-bottom: 1px;
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     background: var(--menu-bg);
     border-radius: 100px;
-    height: 40px;
-    padding: 8px 15px;
+    height: var(--ctrl-size);
+    width: 125px;
 }
 
 #title-bar {
@@ -2093,8 +2090,8 @@ video {
 #btn-reset-video,
 #sub-custom-reset-btn {
     justify-content: center;
-    color: var(--white-92);
-    background-color: var(--white-08);
+    color: var(--white-85);
+    background-color: var(--white-03);
     width: 80vw;
     margin-top: var(--space-lg);
     margin-bottom: var(--space-md);
@@ -2257,10 +2254,8 @@ video {
 }
 
 #settings-view-sources,
-#settings-view-subtitles,
-#settings-view-segments {
+#settings-view-subtitles {
     flex-direction: column;
-    min-height: 340px;
 }
 
 #src-list-view,
@@ -2457,7 +2452,6 @@ video {
     display: none;
     flex-direction: column;
     flex: 1;
-    min-height: 340px;
 }
 
 #sub-custom-view {
@@ -3470,9 +3464,7 @@ video {
 }
 
 .seg-item {
-    background: rgba(255, 255, 255, 0.05);
     border-radius: 14px;
-    padding: 14px 16px;
     display: flex;
     align-items: center;
     gap: 14px;
