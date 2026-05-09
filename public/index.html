@@ -88,6 +88,10 @@
                         <span>/</span>
                         <span id="t-dur">0:00</span>
                     </div>
+                    <button id="btn-episodes" class="ctrl-btn" title="Episodes" style="display:none;">
+                        <i class="fa-solid fa-list"></i>
+                        <span>Episodes</span>
+                    </button>
                     <div class="ctrl-spacer"></div>
                     <div class="right-controls">
                         <span id="ep-current-title" class="ep-current-title-label"></span>
@@ -111,19 +115,6 @@
 
         <div id="unmute-hint">
             <i class="fa-solid fa-volume-xmark"></i> Tap to unmute
-        </div>
-
-        <div id="ep-panel-overlay"></div>
-
-        <div id="ep-panel">
-            <div id="ep-panel-header">
-                <div id="ep-season-tabs">
-                    <div id="ep-season-scroll">
-                        <div id="ep-season-pills"></div>
-                    </div>
-                </div>
-            </div>
-            <div id="ep-list"></div>
         </div>
     </div>
 
@@ -588,6 +579,46 @@
             </div>
         </div>
         <button id="settings-close-btn">Close</button>
+    </div>
+
+    <div id="ep-panel-backdrop"></div>
+    <div id="ep-panel">
+        <div id="ep-panel-season-view">
+            <div class="settings-view-subheader">
+                <button class="svsh-back" id="ep-panel-close"><i class="fa-solid fa-xmark"></i></button>
+                <span class="svsh-title" id="ep-panel-show-title"></span>
+                <span></span>
+            </div>
+            <div id="ep-season-list" class="ep-season-list"></div>
+        </div>
+        <div id="ep-panel-episode-view">
+            <div class="settings-view-subheader">
+                <button class="svsh-back" id="ep-panel-ep-back"><i class="fa-solid fa-arrow-left"></i></button>
+                <span class="svsh-title" id="ep-panel-season-title"></span>
+                <span></span>
+            </div>
+            <div id="ep-panel-ep-list" class="ep-panel-ep-list"></div>
+        </div>
+        <button id="ep-panel-close-btn">Close</button>
+    </div>
+
+    <div id="ep-strip-wrap">
+        <div id="ep-strip-header">
+            <span id="ep-strip-season-label"></span>
+            <button id="ep-strip-season-btn"><i class="fa-solid fa-chevron-down"></i> Change Season</button>
+        </div>
+        <div id="ep-strip" class="ep-strip"></div>
+    </div>
+
+    <div id="ep-strip-season-panel-backdrop"></div>
+    <div id="ep-strip-season-panel">
+        <div class="settings-view-subheader">
+            <button class="svsh-back" id="ep-strip-season-close"><i class="fa-solid fa-xmark"></i></button>
+            <span class="svsh-title" id="ep-strip-show-title2"></span>
+            <span></span>
+        </div>
+        <div id="ep-strip-season-list" class="ep-season-list"></div>
+        <button id="ep-strip-season-close-btn">Close</button>
     </div>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
