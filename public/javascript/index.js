@@ -426,7 +426,6 @@ fetch('https://restcountries.com/v3.1/all?fields=cca2,languages')
     })
     .then(function (data) {
         if (!Array.isArray(data)) {
-            console.error('Countries API response is not an array:', data);
             return;
         }
         for (const country of data) {
