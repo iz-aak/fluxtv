@@ -111,9 +111,11 @@ document.addEventListener('keydown', function (e) {
 var p = new URLSearchParams(location.search);
 var id = p.get('id'), s = p.get('season'), e = p.get('episode'), ap = p.get('ap');
 var _initialFetchPromise = null;
+
 var sources = [];
 var currentSourceIndex = 0;
 var sourcesLoaded = false;
+var buildSourceList = null;
 
 function showNowPlayingToast(title) {
     var toast = document.getElementById('now-playing-toast');
@@ -129,7 +131,9 @@ function showNowPlayingToast(title) {
 
 
 if (id) {
-    var apiUrl = 'https://missourimonster-vyla-api.hf.space/' + (s ? 'api/tv?id=' + id + '&season=' + s + '&episode=' + (e || '1') : 'api/movie?id=' + id);
+    var baseEndpoint = s
+        ? 'https://missourimonster-vyla-api.hf.space/api/tv?id=' + id + '&season=' + s + '&episode=' + (e || '1')
+        : 'https://missourimonster-vyla-api.hf.space/api/movie?id=' + id;
 
     (function () {
         var loaderEl = document.getElementById('loader');
@@ -138,21 +142,9 @@ if (id) {
         var spinnerEl = document.createElement('div');
         spinnerEl.id = 'loader-spinner-wrap';
         spinnerEl.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-60%);z-index:30;display:flex;flex-direction:column;align-items:center;gap:20px;pointer-events:none;';
-        spinnerEl.innerHTML =
-            '<svg width="56" height="56" viewBox="0 0 52 52" style="filter:drop-shadow(0 0 18px rgba(255,255,255,0.18));animation:_vyla_spin 0.9s linear infinite"><style>@keyframes _vyla_spin{to{transform:rotate(360deg)}}</style><circle cx="26" cy="26" r="22" fill="none" stroke="rgba(255,255,255,0.88)" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="100" stroke-dashoffset="70"/></svg>';
+        spinnerEl.innerHTML = '<svg width="56" height="56" viewBox="0 0 52 52" style="filter:drop-shadow(0 0 18px rgba(255,255,255,0.18));animation:_vyla_spin 0.9s linear infinite"><style>@keyframes _vyla_spin{to{transform:rotate(360deg)}}</style><circle cx="26" cy="26" r="22" fill="none" stroke="rgba(255,255,255,0.88)" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="100" stroke-dashoffset="70"/></svg>';
         if (loaderBgEl) loaderBgEl.appendChild(spinnerEl);
         else if (loaderEl) loaderEl.appendChild(spinnerEl);
-
-        fetch('https://missourimonster-vyla-api.hf.space/' + (s ? 'api/tv?id=' + id + '&season=' + s + '&episode=' + (e || '1') : 'api/movie?id=' + id))
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                if (data.sources && data.sources.length) {
-                    var names = data.sources.map(function (src) { return src.label || src.source || 'unknown'; });
-                    var lbl = document.getElementById('loader-spinner-label');
-                    if (lbl && names[0]) lbl.textContent = 'Connecting to ' + names[0] + '\u2026';
-                }
-            })
-            .catch(function () { });
 
         var _origHide = window.hideLoader;
         window.hideLoader = function () {
@@ -167,112 +159,132 @@ if (id) {
         };
     })();
 
-    function fetchWithRetry(attempts) {
-        if (!_initialFetchPromise) {
-            _initialFetchPromise = fetch(apiUrl).then(function (r) { return r.json(); });
-        }
-        return _initialFetchPromise
-            .then(function (d) {
-                if (d.error) throw new Error(d.error);
-                if (d.sources && d.sources.length > 0) {
-                    sources = d.sources;
-                    sourcesLoaded = true;
-                }
-                var url = d.url;
-                if (!url && d.sources && d.sources.length > 0) url = d.sources[0].url;
-                if (!url) throw new Error('no url');
-                if (url.startsWith('/api')) url = 'https://missourimonster-vyla-api.hf.space' + url;
-                d.url = url;
-                return { type: 'json', data: d };
-            })
-            .catch(function (err) {
-                _initialFetchPromise = null;
-                if (attempts > 0) {
-                    return new Promise(function (resolve) {
-                        setTimeout(function () { resolve(fetchWithRetry(attempts - 1)); }, 500);
+    function fetchAllSources() {
+        return fetch('https://missourimonster-vyla-api.hf.space/')
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                var bySource = data.tests && data.tests.bySource ? data.tests.bySource : {};
+                var sourceNames = Object.keys(bySource);
+                if (!sourceNames.length) throw new Error('no sources');
+
+                return new Promise(function (resolve, reject) {
+                    var settled = 0;
+                    var total = sourceNames.length;
+                    var aggregatedSources = [];
+                    var firstResolved = false;
+
+                    sourceNames.forEach(function (name) {
+                        var path = s
+                            ? bySource[name].tv.replace('/1396', '/' + id).replace('season=1', 'season=' + s).replace('episode=1', 'episode=' + (e || '1'))
+                            : bySource[name].movie.replace('/155', '/' + id);
+
+                        fetch('https://missourimonster-vyla-api.hf.space' + path)
+                            .then(function (r) { return r.json(); })
+                            .then(function (d) {
+                                settled++;
+                                if (d && d.url) {
+                                    var entry = {
+                                        label: name,
+                                        source: name,
+                                        url: d.url.startsWith('/api')
+                                            ? 'https://missourimonster-vyla-api.hf.space' + d.url
+                                            : d.url
+                                    };
+                                    if (name === 'vidlink') {
+                                        aggregatedSources.unshift(entry);
+                                    } else {
+                                        aggregatedSources.push(entry);
+                                    }
+                                    if (!firstResolved && name === 'vidlink') {
+                                        firstResolved = true;
+                                        resolve({ first: entry, aggregated: aggregatedSources });
+                                    } else if (!firstResolved && aggregatedSources.length === total) {
+                                        firstResolved = true;
+                                        resolve({ first: aggregatedSources[0], aggregated: aggregatedSources });
+                                    }
+                                }
+                                if (settled === total && !firstResolved) {
+                                    reject(new Error('no working sources'));
+                                }
+                            })
+                            .catch(function () {
+                                settled++;
+                                if (settled === total && !firstResolved) {
+                                    if (aggregatedSources.length > 0) {
+                                        firstResolved = true;
+                                        resolve({ first: aggregatedSources[0], aggregated: aggregatedSources });
+                                    } else {
+                                        reject(new Error('no working sources'));
+                                    }
+                                }
+                            });
                     });
-                }
-                throw err;
+                });
             });
     }
 
-    fetchWithRetry(2)
+    var _allSourcesSettled = false;
+    var _aggregatedSources = [];
+
+    fetchAllSources()
         .then(function (result) {
             shouldHideLoader = true;
             hideLoader();
-            if (result.type === 'json') {
-                if (result.data.sources && result.data.sources.length > 0) {
-                    sources = result.data.sources;
-                    sourcesLoaded = true;
+
+            sources = [result.aggregated[0] || result.first];
+            sourcesLoaded = true;
+            currentSourceIndex = 0;
+
+            var _lastSourceCount = 0;
+            var checkInterval = setInterval(function () {
+                if (result.aggregated.length !== _lastSourceCount) {
+                    _lastSourceCount = result.aggregated.length;
+                    sources = result.aggregated.slice();
+                    var opts = document.getElementById('sources-opts');
+                    if (opts && typeof buildSourceList === 'function') buildSourceList();
                 }
-                var isTv = !!s;
-                var tmdbUrl = isTv ? 'https://api.themoviedb.org/3/tv/' + id + '?api_key=' + TMDB_KEY + '&append_to_response=images' : 'https://api.themoviedb.org/3/movie/' + id + '?api_key=' + TMDB_KEY + '&append_to_response=images';
+            }, 600);
 
-                fetch(tmdbUrl)
-                    .then(function (mr) {
-                        if (!mr.ok) {
-                            throw new Error('TMDB fetch failed: ' + mr.status);
-                        }
-                        return mr.json();
-                    })
-                    .then(function (meta) {
-                        var title = (meta.title || meta.name || 'Unknown');
-                        if (s) title += ' \u00b7 S' + s + 'E' + (e || '1');
-                        document.title = title;
-                        setTitleWithTmdbImage(title, meta);
+            setTimeout(function () {
+                clearInterval(checkInterval);
+                sources = result.aggregated.slice();
+                sourcesLoaded = true;
+                var opts = document.getElementById('sources-opts');
+                if (opts && typeof buildSourceList === 'function') buildSourceList();
+            }, 20000);
 
-                        if ('mediaSession' in navigator) {
-                            var img = 'https://image.tmdb.org/t/p/w500' + (meta.poster_path || meta.backdrop_path);
-                            navigator.mediaSession.metadata = new MediaMetadata({
-                                title: title,
-                                artwork: [{ src: img, sizes: '500x500', type: 'image/jpeg' }]
-                            });
-                        }
+            var isTv = !!s;
+            var tmdbUrl = isTv
+                ? 'https://api.themoviedb.org/3/tv/' + id + '?api_key=' + TMDB_KEY + '&append_to_response=images'
+                : 'https://api.themoviedb.org/3/movie/' + id + '?api_key=' + TMDB_KEY + '&append_to_response=images';
 
-                        showNowPlayingToast(title);
-                        play(result.data.url, true, id);
-                    })
-                    .catch(function (err) {
-                        var title = result.data.title || 'Unknown';
-                        if (s) title += ' \u00b7 S' + s + 'E' + (e || '1');
-                        document.title = title;
-                        document.getElementById('title-text').textContent = title;
-                        showNowPlayingToast(title);
-                        play(result.data.url, true, id);
-                    });
-            } else if (result.type === 'm3u8') {
-                var isTv = !!s;
-                var tmdbUrl = isTv ? 'https://api.themoviedb.org/3/tv/' + id + '?api_key=' + TMDB_KEY + '&append_to_response=images' : 'https://api.themoviedb.org/3/movie/' + id + '?api_key=' + TMDB_KEY + '&append_to_response=images';
-
-                fetch(tmdbUrl)
-                    .then(function (mr) {
-                        if (!mr.ok) {
-                            throw new Error('TMDB fetch failed: ' + mr.status);
-                        }
-                        return mr.json();
-                    })
-                    .then(function (meta) {
-                        if (meta.success === false) {
-                            throw new Error(meta.status_message);
-                        }
-                        var title = (meta.title || meta.name || 'Unknown');
-                        if (s) title += ' \u00b7 S' + s + 'E' + (e || '1');
-                        document.title = title;
-                        setTitleWithTmdbImage(title, meta);
-                        showNowPlayingToast(title);
-                        if ('mediaSession' in navigator) {
-                            var img = 'https://image.tmdb.org/t/p/w500' + (meta.poster_path || meta.backdrop_path);
-                            navigator.mediaSession.metadata = new MediaMetadata({
-                                title: title,
-                                artwork: [{ src: img, sizes: '500x500', type: 'image/jpeg' }]
-                            });
-                        }
-                    })
-                    .catch(function (err) {
-                    });
-                play(result.url, true, id);
-            }
-        }).catch(function (err) {
+            fetch(tmdbUrl)
+                .then(function (mr) { return mr.json(); })
+                .then(function (meta) {
+                    var title = (meta.title || meta.name || 'Unknown');
+                    if (s) title += ' \u00b7 S' + s + 'E' + (e || '1');
+                    document.title = title;
+                    setTitleWithTmdbImage(title, meta);
+                    if ('mediaSession' in navigator) {
+                        var img = 'https://image.tmdb.org/t/p/w500' + (meta.poster_path || meta.backdrop_path);
+                        navigator.mediaSession.metadata = new MediaMetadata({
+                            title: title,
+                            artwork: [{ src: img, sizes: '500x500', type: 'image/jpeg' }]
+                        });
+                    }
+                    showNowPlayingToast(title);
+                    play(result.first.url, true, id);
+                })
+                .catch(function () {
+                    var title = 'Unknown';
+                    if (s) title += ' \u00b7 S' + s + 'E' + (e || '1');
+                    document.title = title;
+                    document.getElementById('title-text').textContent = title;
+                    showNowPlayingToast(title);
+                    play(result.first.url, true, id);
+                });
+        })
+        .catch(function () {
             var carousel = document.getElementById('loader-sources-carousel');
             if (carousel) carousel.style.display = 'none';
             var loaderMsg = document.getElementById('loader-msg');
@@ -285,13 +297,6 @@ if (id) {
             }
             document.getElementById('error-screen').classList.add('show');
         });
-} else {
-    var errText = document.querySelector('.err-text');
-    if (errText) {
-        errText.innerHTML = 'No ID Provided';
-        document.querySelector('.err-text + *') && (document.querySelector('.err-text').insertAdjacentHTML('afterend', '<div class="err-sub">Add an <code>?id=</code> parameter to the URL — e.g. <code>?id=550</code> for a movie or <code>?id=1396&season=1&episode=1</code> for a show.</div>'));
-    }
-    document.getElementById('error-screen').classList.add('show');
 }
 
 var _hxInput = (function () {
@@ -2557,7 +2562,7 @@ function play(raw, skipProxy, videoId) {
         }
     }
 
-    function buildSourceList() {
+    buildSourceList = function () {
         var sourcesOpts = document.getElementById('sources-opts');
         if (!sourcesOpts) return;
         sourcesOpts.innerHTML = '';
@@ -2689,32 +2694,18 @@ function play(raw, skipProxy, videoId) {
             buildSourceList();
             return;
         }
-        if (_initialFetchPromise) {
-            _initialFetchPromise.then(function (d) {
-                if (d.sources && d.sources.length > 0) {
-                    sources = d.sources;
-                    sourcesLoaded = true;
-                }
-                buildSourceList();
-            }).catch(function () { });
-            return;
-        }
         var sourcesOpts = document.getElementById('sources-opts');
         if (sourcesOpts) sourcesOpts.innerHTML = '<div class="source-skeleton"><div class="source-skel-item"></div><div class="source-skel-item"></div><div class="source-skel-item"></div></div>';
-        var endpoint = s ? 'https://missourimonster-vyla-api.hf.space/api/tv?id=' + id + '&season=' + s + '&episode=' + (e || '1') : 'https://missourimonster-vyla-api.hf.space/api/movie?id=' + id;
-        _initialFetchPromise = fetch(endpoint).then(function (r) { return r.json(); });
-        _initialFetchPromise.then(function (d) {
-            if (d.sources && d.sources.length > 0) {
-                sources = d.sources;
+        fetchAllSources()
+            .then(function (result) {
+                sources = result.aggregated.length ? result.aggregated : [result.first];
                 sourcesLoaded = true;
                 currentSourceIndex = 0;
-                var playingUrl = src;
-                for (var i = 0; i < sources.length; i++) {
-                    if (sources[i].url === playingUrl) { currentSourceIndex = i; break; }
-                }
-            }
-            buildSourceList();
-        }).catch(function () { });
+                buildSourceList();
+            })
+            .catch(function () {
+                buildSourceList();
+            });
     }
 
     fetchSources();
