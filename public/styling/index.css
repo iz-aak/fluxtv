@@ -26,6 +26,7 @@
     --menu-close-bg: rgba(0, 0, 0, 0.6);
     --menu-bg: rgba(10, 10, 10, 0.5);
     --menu-bg-strong: rgba(10, 10, 10, 0.7);
+    --menu-bg-stronger: rgba(10, 10, 10, 0.85);
     --menu-blur: blur(10px) saturate(3);
     --menu-blur-strong: blur(20px) saturate(3);
     --menu-radius: 12px;
@@ -1340,6 +1341,11 @@ video {
     max-height: var(--settings-max-h-mobile);
     will-change: transform;
     scrollbar-width: none;
+    transition: background-color 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#settings-panel:hover {
+    background: var(--menu-bg-stronger);
 }
 
 #settings-panel::-webkit-scrollbar,
@@ -1431,8 +1437,7 @@ video {
     }
 
     #settings-modal-wrap {
-        bottom: 0;
-        top: 0;
+        bottom: 20px;
         left: 0;
         right: 0;
         padding: 0;
@@ -1450,7 +1455,7 @@ video {
     }
 
     #settings-close-btn {
-        min-width: var(--settings-width-landscape);
+        width: var(--settings-width-landscape);
         border-radius: 12px;
     }
 
