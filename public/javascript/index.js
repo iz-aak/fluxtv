@@ -39,21 +39,21 @@ function initLoaderBackdrop() {
 }
 
 function setTitleWithTmdbImage(titleText, meta) {
-
     var titleElement = document.getElementById('title-text');
-
-    if (meta && meta.images && meta.images.logos && meta.images.logos.length > 0) {
-        var logo = meta.images.logos[0];
+    var logos = meta && meta.images && meta.images.logos;
+    var logo = null;
+    if (logos && logos.length > 0) {
+        logo = logos.find(function (l) { return l.iso_639_1 === 'en'; });
+        if (!logo) logo = logos.find(function (l) { return !l.iso_639_1 || l.iso_639_1 === 'xx'; });
+        if (!logo) logo = logos[0];
+    }
+    if (!logo && meta && meta.logo_object && meta.logo_object.file_path) {
+        logo = meta.logo_object;
+    }
+    if (logo && logo.file_path) {
         var logoUrl = 'https://image.tmdb.org/t/p/w300' + logo.file_path;
-
-        titleElement.innerHTML = '<img src="' + logoUrl + '" alt="' + titleText + '" style="max-height:24px;max-width:200px;object-fit:contain;">';
-    } else if (meta && meta.logo_object && meta.logo_object.file_path) {
-        var logoUrl = 'https://image.tmdb.org/t/p/w300' + meta.logo_object.file_path;
-
         titleElement.innerHTML = '<img src="' + logoUrl + '" alt="' + titleText + '" style="max-height:24px;max-width:200px;object-fit:contain;">';
     } else {
-        if (meta && meta.images) {
-        }
         titleElement.textContent = titleText;
     }
 }
@@ -706,11 +706,16 @@ function play(raw, skipProxy, videoId) {
         if (labelEl) labelEl.textContent = labelText;
     }
 
+    var _showedAt = 0;
+
     function showUI(pin) {
+        var pl = document.getElementById('player');
+        if (!pl) return;
         controlsWrapper.classList.add('on');
         titleBar.classList.add('on');
-        document.getElementById('player').classList.add('ui-on');
+        pl.classList.add('ui-on');
         shown = true;
+        _showedAt = Date.now();
         clearTimeout(hideTimer);
         if (!pin && !v.paused && !settingsOpen) {
             hideTimer = setTimeout(hideUI, 3200);
@@ -719,9 +724,12 @@ function play(raw, skipProxy, videoId) {
 
     function hideUI() {
         if (settingsOpen) return;
+        if (Date.now() - _showedAt < 320) return;
+        var pl = document.getElementById('player');
+        if (!pl) return;
         controlsWrapper.classList.remove('on');
         titleBar.classList.remove('on');
-        document.getElementById('player').classList.remove('ui-on');
+        pl.classList.remove('ui-on');
         shown = false;
     }
 
@@ -1719,7 +1727,6 @@ function play(raw, skipProxy, videoId) {
     }
 
     var _skipSegments = [];
-    var _skipBtnActive = false;
 
     function msToFmt(ms) {
         if (ms == null) return '0';
@@ -2803,10 +2810,14 @@ function play(raw, skipProxy, videoId) {
             var iosFs = isIOS() && v.webkitDisplayingFullscreen;
             fsIcon.className = (fsEl || iosFs) ? 'fa-solid fa-compress' : 'fa-solid fa-expand';
         }
-        document.addEventListener('fullscreenchange', updateFsIcon);
-        document.addEventListener('webkitfullscreenchange', updateFsIcon);
-        document.addEventListener('mozfullscreenchange', updateFsIcon);
-        document.addEventListener('MSFullscreenChange', updateFsIcon);
+        function onFsChange() {
+            updateFsIcon();
+            showUI(true);
+        }
+        document.addEventListener('fullscreenchange', onFsChange);
+        document.addEventListener('webkitfullscreenchange', onFsChange);
+        document.addEventListener('mozfullscreenchange', onFsChange);
+        document.addEventListener('MSFullscreenChange', onFsChange);
         v.addEventListener('webkitbeginfullscreen', updateFsIcon);
         v.addEventListener('webkitendfullscreen', updateFsIcon);
         btnFullscreen.addEventListener('click', function (e) {
@@ -2974,7 +2985,14 @@ function play(raw, skipProxy, videoId) {
     })();
 
     document.getElementById('player').addEventListener('mousemove', function () {
-        if (!v.paused) showUI();
+        if (!v.paused) {
+            clearTimeout(hideTimer);
+            if (shown) {
+                if (!settingsOpen) hideTimer = setTimeout(hideUI, 3200);
+            } else {
+                showUI();
+            }
+        }
     });
 
     v.addEventListener('timeupdate', setProg);
@@ -3159,22 +3177,44 @@ function play(raw, skipProxy, videoId) {
         v.paused ? v.play() : v.pause();
     });
 
-    document.getElementById('player').addEventListener('click', function (e) {
-        if (settingsOpen) { return; }
-        if (controlsWrapper.contains(e.target)) return;
-        if (settingsPanel && settingsPanel.contains(e.target)) return;
-        if (btnSettings && btnSettings.contains(e.target)) return;
-        if (sourceBtnWrap && sourceBtnWrap.contains(e.target)) return;
-        if (e.target.closest('.cf-skip-btn')) return;
+    v.style.pointerEvents = 'none';
 
+    var existingOverlay = document.getElementById('_vyla_click_overlay');
+    if (existingOverlay) existingOverlay.remove();
+
+    var clickOverlay = document.createElement('div');
+    clickOverlay.id = '_vyla_click_overlay';
+    clickOverlay.style.cssText = 'position:absolute;inset:0;z-index:1;';
+    v.parentElement.appendChild(clickOverlay);
+
+    clickOverlay.addEventListener('click', function (e) {
+        if (settingsOpen || dragging) return;
         if (!shown) {
             showUI(true);
             return;
         }
+        var rect = clickOverlay.getBoundingClientRect();
+        var dx = e.clientX - (rect.left + rect.width / 2);
+        var dy = e.clientY - (rect.top + rect.height / 2);
+        if (Math.sqrt(dx * dx + dy * dy) <= 100) {
+            haptic();
+            flashCenter();
+            v.paused ? v.play() : v.pause();
+        } else {
+            hideUI();
+        }
+    });
 
-        haptic();
-        flashCenter();
-        v.paused ? v.play() : v.pause();
+    document.getElementById('player').addEventListener('click', function (e) {
+        if (settingsOpen || dragging) return;
+        if (e.target === clickOverlay || clickOverlay.contains(e.target)) return;
+        if (controlsWrapper.contains(e.target)) return;
+        if (settingsPanel && settingsPanel.contains(e.target)) return;
+        if (btnSettings && btnSettings.contains(e.target)) return;
+        if (sourceBtnWrap && sourceBtnWrap.contains(e.target)) return;
+        if (e.target.closest && e.target.closest('.cf-skip-btn')) return;
+        if (!shown) { showUI(true); return; }
+        hideUI();
     });
 
     var isPressing = false;
