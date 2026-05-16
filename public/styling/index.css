@@ -1718,7 +1718,6 @@ video {
 .settings-list {
     display: flex;
     flex-direction: column;
-    max-height: 40vh;
     overflow-y: auto;
     scrollbar-width: none;
     -ms-overflow-style: none;
