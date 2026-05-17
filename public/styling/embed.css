@@ -108,11 +108,6 @@
         font-size: 8px;
     }
 
-    #settings-modal-wrap {
-        gap: 4px;
-        height: 60vh;
-    }
-
     #settings-panel {
         max-height: 62vh;
         max-width: 97vw;
@@ -496,7 +491,7 @@
         isolation: isolate;
         -webkit-transform: translateZ(0);
         transform: translateZ(0);
-        min-height: calc(90vh - 70px);
+        min-height: calc(90vh);
         max-width: 94vw;
         flex-shrink: 1;
         min-height: 0;
@@ -515,6 +510,6 @@
     }
 
     #settings-panel {
-        min-height: calc(90vh - 70px);
+        max-height: calc(90vh);
     }
 }
