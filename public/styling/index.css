@@ -2139,6 +2139,7 @@ video {
 
 .sources-opts-list {
     padding: var(--space-sm) var(--space-sm) var(--space-md);
+    max-height: 60vh;
     flex: 1;
     overflow-y: auto;
 }

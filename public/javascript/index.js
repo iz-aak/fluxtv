@@ -84,8 +84,12 @@ function hideLoader() {
 
 document.addEventListener('keydown', function (e) {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
-    if (e.key === 'ArrowLeft') { v.currentTime = Math.max(0, v.currentTime - 10); showUI(); }
-    if (e.key === 'ArrowRight') { v.currentTime = Math.min(v.duration || 0, v.currentTime + 10); showUI(); }
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        if (document.body.classList.contains('tv-nav-mode')) return;
+        if (e.key === 'ArrowLeft') { v.currentTime = Math.max(0, v.currentTime - 10); showUI(); }
+        if (e.key === 'ArrowRight') { v.currentTime = Math.min(v.duration || 0, v.currentTime + 10); showUI(); }
+        return;
+    }
     if (e.key === ' ' || e.key === 'k' || e.key === 'K') { e.preventDefault(); haptic(10); v.paused ? v.play() : v.pause(); }
     if (e.key === 'f' || e.key === 'F') {
         if (isIOS()) {
@@ -110,6 +114,11 @@ document.addEventListener('keydown', function (e) {
 
 var p = new URLSearchParams(location.search);
 var id = p.get('id'), s = p.get('season'), e = p.get('episode'), ap = p.get('ap');
+
+function isIOS() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+}
+
 var _initialFetchPromise = null;
 
 var sources = [];
@@ -308,7 +317,7 @@ var _hxInput = (function () {
     var s = document.createElement('input');
     s.type = 'checkbox';
     s.setAttribute('switch', '');
-    s.setAttribute('aria-hidden', 'true');
+    s.setAttribute('inert', '');
     s.tabIndex = -1;
     s.style.cssText = 'position:fixed;top:-9999px;opacity:0;pointer-events:none;';
     document.body.appendChild(s);
@@ -712,7 +721,7 @@ function play(raw, skipProxy, videoId) {
 
     var _showedAt = 0;
 
-    function showUI(pin) {
+    window.showUI = function showUI(pin) {
         var pl = document.getElementById('player');
         if (!pl) return;
         controlsWrapper.classList.add('on');
@@ -726,7 +735,7 @@ function play(raw, skipProxy, videoId) {
         }
     }
 
-    function hideUI() {
+    window.hideUI = function hideUI() {
         if (settingsOpen) return;
         if (Date.now() - _showedAt < 320) return;
         var pl = document.getElementById('player');
@@ -829,7 +838,7 @@ function play(raw, skipProxy, videoId) {
         lastTooltipPct = pct;
     }
 
-    function doSkip(dir, taps) {
+    window.doSkip = function doSkip(dir, taps) {
         var secs = taps * 10;
         var delta = dir === 'left' ? -secs : secs;
         v.currentTime = Math.max(0, Math.min(v.duration || 0, v.currentTime + delta));
@@ -1014,6 +1023,21 @@ function play(raw, skipProxy, videoId) {
         document.addEventListener('touchstart', tryPlay, { once: true, passive: true });
         document.addEventListener('mousedown', tryPlay, { once: true });
     }
+
+    window.addEventListener('orientationchange', function () {
+        setTimeout(function () {
+            if (settingsOpen) {
+                closeSettings();
+            }
+            shown = false;
+            showUI(true);
+            var pcw = document.getElementById('player-controls-wrapper');
+            if (pcw) {
+                pcw.style.pointerEvents = '';
+                pcw.style.opacity = '';
+            }
+        }, 350);
+    });
 
     unlockOnInteraction();
 
@@ -2947,8 +2971,12 @@ function play(raw, skipProxy, videoId) {
 
     document.addEventListener('keydown', function (e) {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
-        if (e.key === 'ArrowLeft') { doSkip('left', 1); showUI(); }
-        if (e.key === 'ArrowRight') { doSkip('right', 1); showUI(); }
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            if (document.body.classList.contains('tv-nav-mode')) return;
+            if (e.key === 'ArrowLeft') { doSkip('left', 1); showUI(); }
+            if (e.key === 'ArrowRight') { doSkip('right', 1); showUI(); }
+            return;
+        }
         if (e.key === ' ' || e.key === 'k' || e.key === 'K') { e.preventDefault(); haptic(10); v.paused ? v.play() : v.pause(); }
         if (e.key === 'f' || e.key === 'F') {
             if (isIOS()) {
