@@ -22,9 +22,9 @@
     --controls-bg: linear-gradient(to top, var(--black-85) 0%, rgba(0, 0, 0, 0.45) 60%, transparent 100%);
     --title-bg: linear-gradient(to bottom, var(--black-70) 0%, transparent 100%);
     --menu-close-bg: rgba(0, 0, 0, 0.6);
-    --menu-bg: rgba(6, 6, 6, 0.2);
-    --menu-bg-strong: rgba(6, 6, 6, 0.4);
-    --menu-bg-stronger: rgba(6, 6, 6, 0.4);
+    --menu-bg: rgba(6, 6, 6, 0.6);
+    --menu-bg-strong: rgba(6, 6, 6, 0.6);
+    --menu-bg-stronger: rgba(6, 6, 6, 0.6);
     --menu-blur: blur(10px) saturate(3);
     --menu-blur-strong: blur(20px) saturate(3);
     --menu-radius: 12px;

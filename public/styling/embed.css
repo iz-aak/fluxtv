@@ -443,6 +443,10 @@
         padding: 3px 4px 4px;
     }
 
+    #track {
+        height: 4px;
+    }
+
     #track-wrap {
         padding: 6px 3px;
         min-height: 20px;
@@ -455,12 +459,12 @@
     }
 
     .ctrl-btn {
-        width: 24px;
-        height: 24px;
+        width: 35px;
+        height: 35px;
     }
 
     .ctrl-btn i {
-        font-size: 10px;
+        font-size: 1rem;
     }
 
     #subtitle-text {
