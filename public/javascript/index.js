@@ -1374,11 +1374,10 @@ function play(raw, skipProxy, videoId) {
         ? ('https://missourimonster-vyla.hf.space/api/subtitles/tv/' + id + '/' + s + '/' + (e || '1'))
         : ('https://missourimonster-vyla.hf.space/api/subtitles/movie/' + id);
 
-    var subLangList = document.getElementById('sub-lang-groups');
-
     document.getElementById('lbl-subtitle').textContent = 'Loading\u2026';
 
-    subLangList.innerHTML = '<div class="sub-skeleton">' +
+    var inlineEl = document.getElementById('sub-entries-inline');
+    if (inlineEl) inlineEl.innerHTML = '<div class="sub-skeleton">' +
         '<div class="sub-skel-item"></div>' +
         '<div class="sub-skel-item"></div>' +
         '<div class="sub-skel-item"></div>' +
@@ -1519,8 +1518,10 @@ function play(raw, skipProxy, videoId) {
             var subs = Array.isArray(d) ? d : (d.subtitles || []);
             subs = subs.filter(function (s) { return s && (s.file || s.url) && s.label; });
 
+            var inlineEl = document.getElementById('sub-entries-inline');
+
             if (!subs.length) {
-                document.getElementById('sub-lang-groups').innerHTML =
+                if (inlineEl) inlineEl.innerHTML =
                     '<div style="padding:20px;text-align:center;color:rgba(255,255,255,0.3);font-size:14px;">None available</div>';
                 return;
             }
@@ -1537,25 +1538,29 @@ function play(raw, skipProxy, videoId) {
                 groups[base].subs.push(sub);
             });
 
-            var groupsEl = document.getElementById('sub-lang-groups');
-            groupsEl.innerHTML = '';
-
-            Object.keys(groups).forEach(function (lang) {
-                var g = groups[lang];
-                var code = getLangCode(g.label);
-                var row = document.createElement('div');
-                row.className = 'sub-lang-group-item';
-                row.innerHTML =
-                    flagImg(code) +
-                    '<span class="slg-name">' + g.label + '</span>' +
-                    '<span class="slg-count">' + g.subs.length + '</span>' +
-                    '<i class="fa-solid fa-chevron-right slg-chevron"></i>';
-                row.addEventListener('click', function () {
-                    haptic(6);
-                    showSubEntries(g.label, g.subs, code);
+            function buildLangGroups() {
+                if (!inlineEl) return;
+                inlineEl.innerHTML = '';
+                inlineEl.style.display = '';
+                Object.keys(groups).forEach(function (lang) {
+                    var g = groups[lang];
+                    var code = getLangCode(g.label);
+                    var row = document.createElement('div');
+                    row.className = 'sub-lang-group-item';
+                    row.innerHTML =
+                        flagImg(code) +
+                        '<span class="slg-name">' + g.label + '</span>' +
+                        '<span class="slg-count">' + g.subs.length + '</span>' +
+                        '<i class="fa-solid fa-chevron-right slg-chevron"></i>';
+                    row.addEventListener('click', function () {
+                        haptic(6);
+                        showSubEntries(g.label, g.subs, code);
+                    });
+                    inlineEl.appendChild(row);
                 });
-                groupsEl.appendChild(row);
-            });
+            }
+
+            buildLangGroups();
 
             document.getElementById('sub-off-row').addEventListener('click', function () {
                 subState.activeTrack = -1;
@@ -1574,22 +1579,22 @@ function play(raw, skipProxy, videoId) {
         });
 
     function showSubEntries(langLabel, subs, code) {
-        var groupView = document.getElementById('sub-lang-group-view');
-        var entriesView = document.getElementById('sub-lang-entries-view');
-        var entriesTitle = document.getElementById('sub-entries-title');
-        var entriesList = document.getElementById('sub-entries-list');
+        var inlineEl = document.getElementById('sub-entries-inline');
+        if (!inlineEl) return;
+        inlineEl.innerHTML = '';
 
-        if (!groupView || !entriesView || !entriesTitle || !entriesList) return;
-
+        var header = document.createElement('div');
+        header.className = 'sub-lang-group-item';
+        header.style.cssText = 'cursor:pointer;opacity:0.7;';
         var titleCode = code || getLangCode(langLabel);
-        entriesTitle.innerHTML = titleCode
-            ? '<img src="https://flagcdn.com/20x15/' + titleCode + '.png" width="20" height="15" style="border-radius:2px;object-fit:cover;flex-shrink:0;" alt=""> ' + langLabel
-            : langLabel;
-        entriesList.innerHTML = '';
-        groupView.style.display = 'none';
-        groupView.style.flexDirection = 'column';
-        entriesView.style.display = 'flex';
-        entriesView.style.flexDirection = 'column';
+        header.innerHTML =
+            '<i class="fa-solid fa-arrow-left" style="font-size:13px;width:26px;flex-shrink:0;"></i>' +
+            (titleCode ? '<img class="slg-flag" src="https://flagcdn.com/20x15/' + titleCode + '.png" width="26" height="20" alt="">' : '') +
+            '<span class="slg-name">' + langLabel + '</span>';
+        header.addEventListener('click', function () {
+            buildLangGroups();
+        });
+        inlineEl.appendChild(header);
 
         subs.forEach(function (sub) {
             var row = document.createElement('div');
@@ -1598,7 +1603,6 @@ function play(raw, skipProxy, videoId) {
             var shortUrl = url.replace(/^https?:\/\//, '').substring(0, 28) + (url.length > 28 ? '\u2026' : '');
             var fmtLabel = (sub.format || (url.toLowerCase().includes('.srt') ? 'srt' : 'vtt')).toUpperCase();
             var srcName = sub.source || '';
-
             var entryCode = code || getLangCode(langLabel);
             var entryFlag = entryCode
                 ? '<img src="https://flagcdn.com/20x15/' + entryCode + '.png" width="26" height="20" style="border-radius:3px;object-fit:cover;flex-shrink:0;" alt="">'
@@ -1622,7 +1626,7 @@ function play(raw, skipProxy, videoId) {
                 row.style.opacity = '0.5';
                 fetchSub(url)
                     .then(function (cues) {
-                        entriesList.querySelectorAll('.sub-entry-row').forEach(function (el) {
+                        inlineEl.querySelectorAll('.sub-entry-row').forEach(function (el) {
                             el.removeAttribute('data-active');
                             el.style.background = '';
                         });
@@ -1645,18 +1649,8 @@ function play(raw, skipProxy, videoId) {
                     });
             });
 
-            entriesList.appendChild(row);
+            inlineEl.appendChild(row);
         });
-
-        var backBtn = document.getElementById('sub-entries-back');
-        if (backBtn) {
-            backBtn.onclick = function () {
-                entriesView.style.display = 'none';
-                entriesView.style.flexDirection = '';
-                groupView.style.display = '';
-                groupView.style.flexDirection = '';
-            };
-        }
     }
 
     function openSettings() {
@@ -1689,7 +1683,6 @@ function play(raw, skipProxy, videoId) {
             target.classList.add('active');
             if (name === 'subtitles') {
                 document.getElementById('sub-lang-group-view').style.display = 'flex';
-                document.getElementById('sub-lang-entries-view').style.display = 'none';
                 document.getElementById('sub-custom-view').style.display = 'none';
             }
         }
@@ -3548,7 +3541,6 @@ function play(raw, skipProxy, videoId) {
 
         if (openBtn) openBtn.addEventListener('click', function () {
             document.getElementById('sub-lang-group-view').style.display = 'none';
-            document.getElementById('sub-lang-entries-view').style.display = 'none';
             document.getElementById('sub-custom-view').style.display = 'flex';
             updateSimpleControls();
             updateAdvancedControls();
