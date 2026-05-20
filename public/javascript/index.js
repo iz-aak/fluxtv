@@ -93,7 +93,7 @@ document.addEventListener('keydown', function (e) {
     }
     if (e.key === ' ' || e.key === 'k' || e.key === 'K') { e.preventDefault(); haptic(10); v.paused ? v.play() : v.pause(); }
     if (e.key === 'f' || e.key === 'F') {
-        if (isIOS()) {
+        if (isIOS() && typeof v.webkitEnterFullscreen === 'function') {
             if (v.webkitDisplayingFullscreen) {
                 v.webkitExitFullscreen();
             } else {
@@ -696,25 +696,6 @@ function play(raw, skipProxy, videoId) {
     function applyVideoStyles() {
         v.style.filter = 'brightness(' + videoState.brightness + '%) contrast(' + videoState.contrast + '%) saturate(' + videoState.saturate + '%)';
         v.style.objectFit = videoState.ratio;
-    }
-
-    function isIOS() {
-        return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-    }
-
-    function isAndroid() {
-        return /Android/.test(navigator.userAgent);
-    }
-
-    function showToast(message, duration) {
-        var toast = document.getElementById('now-playing-toast');
-        if (toast) {
-            toast.textContent = message;
-            toast.style.display = 'block';
-            setTimeout(function () {
-                toast.style.display = 'none';
-            }, duration || 3000);
-        }
     }
 
     if (subFontSelect) subFontSelect.value = subState.font;
@@ -2909,30 +2890,10 @@ function play(raw, skipProxy, videoId) {
     }
 
     if (btnFullscreen) {
-        var fsIcon = btnFullscreen.querySelector('i');
-        function updateFsIcon() {
-            var fsEl = document.fullscreenElement || document.webkitFullscreenElement ||
-                document.mozFullScreenElement || document.msFullscreenElement;
-            var iosFs = isIOS() && v.webkitDisplayingFullscreen;
-            var isFs = fsEl || iosFs;
-            btnFullscreen.innerHTML = isFs
-                ? '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 448 512" fill="currentColor"><path d="M160 64c0-17.7-14.3-32-32-32s-32 14.3-32 32v64H32c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32V64zM32 320c-17.7 0-32 14.3-32 32s14.3 32 32 32H96v64c0 17.7 14.3 32 32 32s32-14.3 32-32V352c0-17.7-14.3-32-32-32H32zM352 64c0-17.7-14.3-32-32-32s-32 14.3-32 32v96c0 17.7 14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32H352V64zM320 320c-17.7 0-32 14.3-32 32v96c0 17.7 14.3 32 32 32s32-14.3 32-32V384h64c17.7 0 32-14.3 32-32s-14.3-32-32-32H320z"/></svg>'
-                : '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 448 512" fill="currentColor"><path d="M32 32C14.3 32 0 46.3 0 64v96c0 17.7 14.3 32 32 32s32-14.3 32-32V96h64c17.7 0 32-14.3 32-32s-14.3-32-32-32H32zM64 352c0-17.7-14.3-32-32-32s-32 14.3-32 32v96c0 17.7 14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32H64V352zM320 32c-17.7 0-32 14.3-32 32s14.3 32 32 32h64v64c0 17.7 14.3 32 32 32s32-14.3 32-32V64c0-17.7-14.3-32-32-32H320zM448 352c0-17.7-14.3-32-32-32s-32 14.3-32 32v64H320c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32V352z"/></svg>';
-        }
-        function onFsChange() {
-            updateFsIcon();
-            showUI(true);
-        }
-        document.addEventListener('fullscreenchange', onFsChange);
-        document.addEventListener('webkitfullscreenchange', onFsChange);
-        document.addEventListener('mozfullscreenchange', onFsChange);
-        document.addEventListener('MSFullscreenChange', onFsChange);
-        v.addEventListener('webkitbeginfullscreen', updateFsIcon);
-        v.addEventListener('webkitendfullscreen', updateFsIcon);
         btnFullscreen.addEventListener('click', function (e) {
             e.stopPropagation();
             haptic(10);
-            if (isIOS()) {
+            if (isIOS() && typeof v.webkitEnterFullscreen === 'function') {
                 if (v.webkitDisplayingFullscreen) {
                     v.webkitExitFullscreen();
                 } else {
@@ -3048,7 +3009,7 @@ function play(raw, skipProxy, videoId) {
         }
         if (e.key === ' ' || e.key === 'k' || e.key === 'K') { e.preventDefault(); haptic(10); v.paused ? v.play() : v.pause(); }
         if (e.key === 'f' || e.key === 'F') {
-            if (isIOS()) {
+            if (isIOS() && typeof v.webkitEnterFullscreen === 'function') {
                 if (v.webkitDisplayingFullscreen) {
                     v.webkitExitFullscreen();
                 } else {
@@ -3056,14 +3017,19 @@ function play(raw, skipProxy, videoId) {
                 }
                 return;
             }
-            var fsEl = document.fullscreenElement || document.webkitFullscreenElement;
-            var player = document.getElementById('player');
+            var fsEl = document.fullscreenElement || document.webkitFullscreenElement ||
+                document.mozFullScreenElement || document.msFullscreenElement;
             if (fsEl) {
                 if (document.exitFullscreen) document.exitFullscreen();
                 else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+                else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
+                else if (document.msExitFullscreen) document.msExitFullscreen();
             } else {
+                var player = document.getElementById('player');
                 if (player.requestFullscreen) player.requestFullscreen();
                 else if (player.webkitRequestFullscreen) player.webkitRequestFullscreen();
+                else if (player.mozRequestFullScreen) player.mozRequestFullScreen();
+                else if (player.msRequestFullscreen) player.msRequestFullscreen();
             }
         }
     });

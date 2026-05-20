@@ -44,10 +44,6 @@
         font-size: 11px;
     }
 
-    .right-controls {
-        border-radius: 100px;
-    }
-
     .ctrl-btn {
         width: 30px;
         height: 30px;
@@ -407,12 +403,6 @@
     #track-wrap {
         padding: 6px 3px;
         min-height: 20px;
-    }
-
-    .left-controls,
-    .right-controls {
-        gap: 2px;
-        padding: 2px 5px;
     }
 
     .ctrl-btn {
