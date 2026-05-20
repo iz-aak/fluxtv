@@ -1,4 +1,5 @@
 var TMDB_KEY = '338a47b75eab45d9e64e67088f910f93';
+var baseURL = "https://missourimonster-vyla.hf.space";
 
 var alive = true;
 var shouldHideLoader = false;
@@ -141,8 +142,8 @@ function showNowPlayingToast(title) {
 
 if (id) {
     var baseEndpoint = s
-        ? 'https://missourimonster-vyla.hf.space/api/tv?id=' + id + '&season=' + s + '&episode=' + (e || '1')
-        : 'https://missourimonster-vyla.hf.space/api/movie?id=' + id;
+        ? baseURL + '/api/tv?id=' + id + '&season=' + s + '&episode=' + (e || '1')
+        : baseURL + '/api/movie?id=' + id;
 
     (function () {
         var loaderEl = document.getElementById('loader');
@@ -169,7 +170,7 @@ if (id) {
     })();
 
     function fetchAllSources() {
-        return fetch('https://missourimonster-vyla.hf.space/')
+        return fetch(baseURL + '/')
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 var bySource = data.tests && data.tests.bySource ? data.tests.bySource : {};
@@ -187,7 +188,7 @@ if (id) {
                             ? bySource[name].tv.replace('/1396', '/' + id).replace('season=1', 'season=' + s).replace('episode=1', 'episode=' + (e || '1'))
                             : bySource[name].movie.replace('/155', '/' + id);
 
-                        fetch('https://missourimonster-vyla.hf.space' + path)
+                        fetch(baseURL + path)
                             .then(function (r) { return r.json(); })
                             .then(function (d) {
                                 settled++;
@@ -196,7 +197,7 @@ if (id) {
                                         label: name,
                                         source: name,
                                         url: d.url.startsWith('/api')
-                                            ? 'https://missourimonster-vyla.hf.space' + d.url
+                                            ? baseURL + d.url
                                             : d.url
                                     };
                                     aggregatedSources.push(entry);
@@ -422,7 +423,7 @@ function fetchSubDirect(sub) {
 }
 
 function fetchSubViaProxy(sub) {
-    var proxyUrl = 'https://missourimonster-vyla.hf.space/api/proxy?url=' + encodeURIComponent(sub.url);
+    var proxyUrl = baseURL + '/api/proxy?url=' + encodeURIComponent(sub.url);
     return testSubtitle(Object.assign({}, sub, {
         url: proxyUrl,
         headers: { 'Referer': new URL(sub.url).origin + '/', 'Origin': new URL(sub.url).origin }
@@ -479,7 +480,7 @@ function play(raw, skipProxy, videoId) {
         document.head.appendChild(st);
     })();
 
-    var src = (skipProxy || raw.startsWith('https://missourimonster-vyla.hf.space')) ? raw : (raw.startsWith('/api') ? 'https://missourimonster-vyla.hf.space' + raw : 'https://missourimonster-vyla.hf.space/api/movie?url=' + encodeURIComponent(raw));
+    var src = (skipProxy || raw.startsWith(baseURL)) ? raw : (raw.startsWith('/api') ? baseURL + raw : baseURL + '/api/movie?url=' + encodeURIComponent(raw));
     var v = document.getElementById('v');
     var controlsWrapper = document.getElementById('player-controls-wrapper');
     var titleBar = document.getElementById('title-bar');
@@ -489,8 +490,7 @@ function play(raw, skipProxy, videoId) {
     var bufEl = document.getElementById('buf');
     var thumb = document.getElementById('thumb');
     var tCur = document.getElementById('t-cur');
-    var tDur = document.getElementById('t-dur');
-    var playIco = document.getElementById('play-ico');
+    var tDur = { textContent: '' };
     var ci = document.getElementById('ci');
     var centerFlash = document.getElementById('center-flash');
     var cfSkipLeft = document.getElementById('cf-skip-left');
@@ -746,19 +746,17 @@ function play(raw, skipProxy, videoId) {
         shown = false;
     }
 
-    function syncIcon() {
-        playIco.className = v.paused ? 'fa-solid fa-play' : 'fa-solid fa-pause';
-    }
+    v.addEventListener('play', function () {
+        ci.className = 'fa-solid fa-pause';
+        centerFlash.classList.remove('paused');
+    });
+
+    v.addEventListener('pause', function () {
+        ci.className = 'fa-solid fa-play';
+        centerFlash.classList.add('paused');
+    });
 
     function flashCenter() {
-        ci.className = v.paused ? 'fa-solid fa-pause' : 'fa-solid fa-play';
-        if (v.paused) {
-            ci.classList.add('paused');
-            centerFlash.classList.add('paused');
-        } else {
-            ci.classList.remove('paused');
-            centerFlash.classList.remove('paused');
-        }
         ci.classList.remove('pop');
         void ci.offsetWidth;
         ci.classList.add('pop');
@@ -1369,10 +1367,10 @@ function play(raw, skipProxy, videoId) {
         });
     }
 
-    var PROXY = 'https://missourimonster-vyla.hf.space/api/proxy?url=';
+    var PROXY = baseURL + '/api/proxy?url=';
     var vylaEndpoint = s
-        ? ('https://missourimonster-vyla.hf.space/api/subtitles/tv/' + id + '/' + s + '/' + (e || '1'))
-        : ('https://missourimonster-vyla.hf.space/api/subtitles/movie/' + id);
+        ? (baseURL + '/api/subtitles/tv/' + id + '/' + s + '/' + (e || '1'))
+        : (baseURL + '/api/subtitles/movie/' + id);
 
     document.getElementById('lbl-subtitle').textContent = 'Loading\u2026';
 
@@ -1538,7 +1536,7 @@ function play(raw, skipProxy, videoId) {
                 groups[base].subs.push(sub);
             });
 
-            function buildLangGroups() {
+            window._buildLangGroups = function () {
                 if (!inlineEl) return;
                 inlineEl.innerHTML = '';
                 inlineEl.style.display = '';
@@ -1558,9 +1556,9 @@ function play(raw, skipProxy, videoId) {
                     });
                     inlineEl.appendChild(row);
                 });
-            }
+            };
 
-            buildLangGroups();
+            window._buildLangGroups();
 
             document.getElementById('sub-off-row').addEventListener('click', function () {
                 subState.activeTrack = -1;
@@ -1583,18 +1581,42 @@ function play(raw, skipProxy, videoId) {
         if (!inlineEl) return;
         inlineEl.innerHTML = '';
 
-        var header = document.createElement('div');
-        header.className = 'sub-lang-group-item';
-        header.style.cssText = 'cursor:pointer;opacity:0.7;';
+        var specialList = document.querySelector('#sub-lang-group-view .sub-special-list');
+        var sectionDivider = document.getElementById('sub-section-divider');
+        var svshTitle = document.querySelector('#sub-lang-group-view .svsh-title');
+        var customizeBtn = document.getElementById('sub-customize-open-btn');
+        var svshBack = document.querySelector('#sub-lang-group-view .svsh-back');
+
+        if (specialList) specialList.style.display = 'none';
+        if (sectionDivider) sectionDivider.style.display = 'none';
+        if (customizeBtn) customizeBtn.style.display = 'none';
+
         var titleCode = code || getLangCode(langLabel);
-        header.innerHTML =
-            '<i class="fa-solid fa-arrow-left" style="font-size:13px;width:26px;flex-shrink:0;"></i>' +
-            (titleCode ? '<img class="slg-flag" src="https://flagcdn.com/20x15/' + titleCode + '.png" width="26" height="20" alt="">' : '') +
-            '<span class="slg-name">' + langLabel + '</span>';
-        header.addEventListener('click', function () {
-            buildLangGroups();
-        });
-        inlineEl.appendChild(header);
+        if (svshTitle) {
+            svshTitle.innerHTML = (titleCode ? '<img class="slg-flag" src="https://flagcdn.com/20x15/' + titleCode + '.png" width="20" height="15" style="border-radius:2px;object-fit:cover;vertical-align:middle;margin-right:6px;">' : '') + langLabel;
+        }
+
+        var _origBack = null;
+        if (svshBack) {
+            _origBack = svshBack.cloneNode(true);
+            svshBack.replaceWith(_origBack);
+            _origBack.addEventListener('click', function () {
+                inlineEl.innerHTML = '';
+                if (specialList) specialList.style.display = '';
+                if (sectionDivider) sectionDivider.style.display = '';
+                if (customizeBtn) customizeBtn.style.display = '';
+                if (svshTitle) svshTitle.textContent = 'Subtitles';
+                window._buildLangGroups();
+                var newBack = document.querySelector('#sub-lang-group-view .svsh-back');
+                if (newBack) {
+                    newBack.addEventListener('click', function () {
+                        showSettingsView('main');
+                        haptic(6);
+                    });
+                }
+                haptic(6);
+            });
+        }
 
         subs.forEach(function (sub) {
             var row = document.createElement('div');
@@ -1651,6 +1673,8 @@ function play(raw, skipProxy, videoId) {
 
             inlineEl.appendChild(row);
         });
+
+        inlineEl.style.display = '';
     }
 
     function openSettings() {
@@ -2011,12 +2035,12 @@ function play(raw, skipProxy, videoId) {
 
         function attachHostVideoListeners() {
             v.addEventListener('play', function () {
-                if (!wpState.active || !wpState.isHost) return;
-                broadcastToGuests({ type: 'play', time: v.currentTime });
+                var icon = document.getElementById('play-btn-icon');
+                if (icon) icon.className = 'fa-solid fa-pause';
             });
             v.addEventListener('pause', function () {
-                if (!wpState.active || !wpState.isHost) return;
-                broadcastToGuests({ type: 'pause', time: v.currentTime });
+                var icon = document.getElementById('play-btn-icon');
+                if (icon) icon.className = 'fa-solid fa-play';
             });
             v.addEventListener('seeked', function () {
                 if (!wpState.active || !wpState.isHost) return;
@@ -2303,16 +2327,21 @@ function play(raw, skipProxy, videoId) {
             haptic(6);
         });
 
+        var btnSubShortcut = document.getElementById('btn-subtitles-shortcut');
+        if (btnSubShortcut) {
+            btnSubShortcut.addEventListener('click', function (e) {
+                e.stopPropagation();
+                openSettings();
+                showSettingsView('subtitles');
+            });
+        }
+
         wpOverlayToggle.addEventListener('click', function () {
             wpState.overlayOn = !wpState.overlayOn;
             this.classList.toggle('on', wpState.overlayOn);
             updateWatchPartyOverlay();
             haptic(6);
         });
-
-        document.getElementById('btn-play').addEventListener('click', function (e) {
-            if (wpState.lockControls) { e.stopImmediatePropagation(); return; }
-        }, true);
 
         document.addEventListener('keydown', function (e) {
             if (!wpState.lockControls) return;
@@ -2438,8 +2467,8 @@ function play(raw, skipProxy, videoId) {
 
             var episode = e || 1;
             var endpoint = s
-                ? `https://missourimonster-vyla.hf.space/api/downloads/tv/${id}/${s}/${episode}`
-                : `https://missourimonster-vyla.hf.space/api/downloads/movie/${id}`;
+                ? `${baseURL}/api/downloads/tv/${id}/${s}/${episode}`
+                : `${baseURL}/api/downloads/movie/${id}`;
 
             function fetchWithRetry(attempts = 0) {
                 var maxRetries = 2;
@@ -2719,7 +2748,7 @@ function play(raw, skipProxy, videoId) {
             showSrcFailed(detailBody);
         }, timeout);
 
-        var testUrl = source.url || ('https://missourimonster-vyla.hf.space/' + (s ? 'api/tv?id=' + id + '&season=' + s + '&episode=' + (e || '1') : 'api/movie?id=' + id));
+        var testUrl = source.url || (baseURL + '/' + (s ? 'api/tv?id=' + id + '&season=' + s + '&episode=' + (e || '1') : 'api/movie?id=' + id));
         fetch(testUrl, { method: 'HEAD' })
             .then(function (r) {
                 if (cancelled) return;
@@ -2838,7 +2867,10 @@ function play(raw, skipProxy, videoId) {
             var fsEl = document.fullscreenElement || document.webkitFullscreenElement ||
                 document.mozFullScreenElement || document.msFullscreenElement;
             var iosFs = isIOS() && v.webkitDisplayingFullscreen;
-            fsIcon.className = (fsEl || iosFs) ? 'fa-solid fa-compress' : 'fa-solid fa-expand';
+            var isFs = fsEl || iosFs;
+            btnFullscreen.innerHTML = isFs
+                ? '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 448 512" fill="currentColor"><path d="M160 64c0-17.7-14.3-32-32-32s-32 14.3-32 32v64H32c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32V64zM32 320c-17.7 0-32 14.3-32 32s14.3 32 32 32H96v64c0 17.7 14.3 32 32 32s32-14.3 32-32V352c0-17.7-14.3-32-32-32H32zM352 64c0-17.7-14.3-32-32-32s-32 14.3-32 32v96c0 17.7 14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32H352V64zM320 320c-17.7 0-32 14.3-32 32v96c0 17.7 14.3 32 32 32s32-14.3 32-32V384h64c17.7 0 32-14.3 32-32s-14.3-32-32-32H320z"/></svg>'
+                : '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 448 512" fill="currentColor"><path d="M32 32C14.3 32 0 46.3 0 64v96c0 17.7 14.3 32 32 32s32-14.3 32-32V96h64c17.7 0 32-14.3 32-32s-14.3-32-32-32H32zM64 352c0-17.7-14.3-32-32-32s-32 14.3-32 32v96c0 17.7 14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32H64V352zM320 32c-17.7 0-32 14.3-32 32s14.3 32 32 32h64v64c0 17.7 14.3 32 32 32s32-14.3 32-32V64c0-17.7-14.3-32-32-32H320zM448 352c0-17.7-14.3-32-32-32s-32 14.3-32 32v64H320c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32V352z"/></svg>';
         }
         function onFsChange() {
             updateFsIcon();
@@ -3058,7 +3090,6 @@ function play(raw, skipProxy, videoId) {
 
     v.addEventListener('durationchange', function () {
         if (v.duration) {
-            tDur.textContent = fmt(v.duration);
             clearTimeout(retryTimer);
             retryCount = maxRetries;
             hideBuffering();
@@ -3069,17 +3100,6 @@ function play(raw, skipProxy, videoId) {
     setTimeout(function () {
         restoreTimestamp();
     }, 2000);
-
-    v.addEventListener('play', function () { syncIcon(); ci.classList.remove('paused'); centerFlash.classList.remove('paused'); showUI(); });
-    v.addEventListener('pause', function () {
-        syncIcon();
-        ci.classList.add('paused');
-        centerFlash.classList.add('paused');
-        showUI(true);
-        clearTimeout(hideTimer);
-        var videoKey = (s ? videoId + '_s' + s + '_e' + (e || '1') : videoId);
-        saveTimestamp(videoKey, v.currentTime);
-    });
 
     var lastSaveTime = 0;
     v.addEventListener('timeupdate', function () {
@@ -3099,11 +3119,11 @@ function play(raw, skipProxy, videoId) {
             var nextE = parseInt(e || '1') + 1;
             var nextS = parseInt(s);
 
-            fetch('https://missourimonster-vyla.hf.space/api/tv?id=' + id + '&season=' + nextS + '&episode=' + nextE)
+            fetch(baseURL + '/api/tv?id=' + id + '&season=' + nextS + '&episode=' + nextE)
                 .then(function (r) { return r.json(); })
                 .then(function (d) {
                     if (d.error || !d.url) {
-                        fetch('https://missourimonster-vyla.hf.space/api/tv?id=' + id + '&season=' + (nextS + 1) + '&episode=1')
+                        fetch(baseURL + '/api/tv?id=' + id + '&season=' + (nextS + 1) + '&episode=1')
                             .then(function (r) { return r.json(); })
                             .then(function (d2) {
                                 if (d2.error || !d2.url) return;
@@ -3161,11 +3181,11 @@ function play(raw, skipProxy, videoId) {
         var nextS = parseInt(s);
 
         setTimeout(function () {
-            fetch('https://missourimonster-vyla.hf.space/api/tv?id=' + id + '&season=' + nextS + '&episode=' + nextE)
+            fetch(baseURL + '/api/tv?id=' + id + '&season=' + nextS + '&episode=' + nextE)
                 .then(function (r) { return r.json(); })
                 .then(function (d) {
                     if (d.error || !d.url) {
-                        return fetch('https://missourimonster-vyla.hf.space/api/tv?id=' + id + '&season=' + (nextS + 1) + '&episode=1')
+                        return fetch(baseURL + '/api/tv?id=' + id + '&season=' + (nextS + 1) + '&episode=1')
                             .then(function (r) { return r.json(); })
                             .then(function (d2) {
                                 if (d2.error || !d2.url) return;
@@ -3206,18 +3226,13 @@ function play(raw, skipProxy, videoId) {
         });
     }
 
-    document.getElementById('btn-play').addEventListener('click', function (e) {
-        e.stopPropagation();
-        v.paused ? v.play() : v.pause();
-    });
-
     v.style.pointerEvents = 'none';
 
-    var existingOverlay = document.getElementById('_vyla_click_overlay');
+    var existingOverlay = document.getElementById('click-overlay');
     if (existingOverlay) existingOverlay.remove();
 
     var clickOverlay = document.createElement('div');
-    clickOverlay.id = '_vyla_click_overlay';
+    clickOverlay.id = 'click-overlay';
     clickOverlay.style.cssText = 'position:absolute;inset:0;z-index:1;';
     v.parentElement.appendChild(clickOverlay);
 
@@ -3227,15 +3242,22 @@ function play(raw, skipProxy, videoId) {
             showUI(true);
             return;
         }
-        var rect = clickOverlay.getBoundingClientRect();
-        var dx = e.clientX - (rect.left + rect.width / 2);
-        var dy = e.clientY - (rect.top + rect.height / 2);
-        if (Math.sqrt(dx * dx + dy * dy) <= 100) {
+        var isTouch = window.matchMedia('(pointer: coarse)').matches;
+        if (isTouch) {
+            var rect = clickOverlay.getBoundingClientRect();
+            var dx = e.clientX - (rect.left + rect.width / 2);
+            var dy = e.clientY - (rect.top + rect.height / 2);
+            if (Math.sqrt(dx * dx + dy * dy) <= 100) {
+                haptic();
+                flashCenter();
+                v.paused ? v.play() : v.pause();
+            } else {
+                hideUI();
+            }
+        } else {
             haptic();
             flashCenter();
             v.paused ? v.play() : v.pause();
-        } else {
-            hideUI();
         }
     });
 
@@ -4020,24 +4042,31 @@ function play(raw, skipProxy, videoId) {
         });
     }
 
+    function fallbackEps(season) {
+        var arr = [];
+        var count = (_epSeasonCache['_count_' + season]) || 20;
+        for (var i = 1; i <= count; i++) arr.push({ episode_number: i, name: 'Episode ' + i, runtime: null, still_path: null });
+        return arr;
+    }
+
     function fetchSeason(season, cb) {
-        if (_epSeasonCache[season]) { cb(_epSeasonCache[season]); return; }
-        fetch('https://api.themoviedb.org/3/tv/' + id + '/season/' + season + '?api_key=' + TMDB_KEY)
-            .then(function (r) { return r.json(); })
+        if (_epSeasonCache[season] && _epSeasonCache[season]._real) { cb(_epSeasonCache[season]); return; }
+        fetch('https://api.themoviedb.org/3/tv/' + id + '/season/' + season + '?api_key=' + TMDB_KEY + '&language=en-US&append_to_response=images')
+            .then(function (r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.json();
+            })
             .then(function (d) {
-                _epSeasonCache[season] = d.episodes || fallbackEps();
+                if (!d.episodes || !d.episodes.length) throw new Error('no episodes');
+                d.episodes._real = true;
+                _epSeasonCache[season] = d.episodes;
+                _epSeasonCache[season]._real = true;
                 cb(_epSeasonCache[season]);
             })
             .catch(function () {
-                _epSeasonCache[season] = fallbackEps();
-                cb(_epSeasonCache[season]);
+                _epSeasonCache[season] = null;
+                cb(fallbackEps(season));
             });
-    }
-
-    function fallbackEps() {
-        var arr = [];
-        for (var i = 1; i <= 20; i++) arr.push({ episode_number: i, name: 'Episode ' + i, runtime: null, still_path: null });
-        return arr;
     }
 
     fetch('https://api.themoviedb.org/3/tv/' + id + '?api_key=' + TMDB_KEY)

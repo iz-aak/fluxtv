@@ -21,22 +21,6 @@
             <span id="title-text"></span>
         </div>
 
-        <div id="tap-left" class="tap-zone"></div>
-        <div id="tap-right" class="tap-zone"></div>
-
-        <div id="skip-left" class="skip-pill">
-            <div class="skip-inner">
-                <i class="fa-solid fa-backward"></i>
-                <span id="skip-left-lbl">-10 seconds</span>
-            </div>
-        </div>
-        <div id="skip-right" class="skip-pill">
-            <div class="skip-inner">
-                <i class="fa-solid fa-forward"></i>
-                <span id="skip-right-lbl">+10 seconds</span>
-            </div>
-        </div>
-
         <div id="center-flash">
             <button id="cf-skip-left" class="cf-skip-btn">
                 <svg width="1em" height="1em" viewBox="0 0 25 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -69,40 +53,103 @@
 
         <div id="player-controls-wrapper">
             <div id="progress-container">
-                <div id="track-wrap">
-                    <div id="tooltip"><span id="tooltip-time">0:00</span></div>
-                    <div id="track">
-                        <div id="buf"></div>
-                        <div id="prog"></div>
-                        <div id="thumb"></div>
+                <div id="track-row">
+                    <span id="t-cur">0:00</span>
+                    <div id="track-wrap">
+                        <div id="tooltip"><span id="tooltip-time">0:00</span></div>
+                        <div id="track">
+                            <div id="buf"></div>
+                            <div id="prog"></div>
+                            <div id="thumb"></div>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <div id="controls">
                 <div id="control-row">
-                    <div id="play-btn-wrap">
-                        <button id="btn-play" class="ctrl-btn"><i class="fa-solid fa-play" id="play-ico"></i></button>
+                    <div id="left-controls">
+                        <button id="btn-play-main" class="ctrl-btn"
+                            onclick="var v=document.getElementById('v');v.paused?v.play():v.pause();">
+                            <i class="fa-solid fa-play" id="play-btn-icon"></i>
+                        </button>
+                        <button class="ctrl-btn"
+                            onclick="var v=document.getElementById('v');v.currentTime=Math.max(0,v.currentTime-10);">
+                            <svg width="1em" height="1em" viewBox="0 0 25 24" fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    d="M13.6667 12.3333L9 7.66667M9 7.66667L13.6667 3M9 7.66667H18.3333C19.571 7.66667 20.758 8.15833 21.6332 9.0335C22.5083 9.90867 23 11.0957 23 12.3333C23 13.571 22.5083 14.758 21.6332 15.6332C20.758 16.5083 19.571 17 18.3333 17H16"
+                                    stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                                    stroke-linejoin="round"></path>
+                                <path
+                                    d="M4.50426 14.2727V23H2.65909V16.0241H2.60795L0.609375 17.277V15.6406L2.76989 14.2727H4.50426ZM10.0004 23.1918C9.2674 23.1889 8.63672 23.0085 8.10831 22.6506C7.58274 22.2926 7.17791 21.7741 6.89382 21.0952C6.61257 20.4162 6.47337 19.5994 6.47621 18.6449C6.47621 17.6932 6.61683 16.8821 6.89808 16.2116C7.18217 15.5412 7.587 15.0312 8.11257 14.6818C8.64098 14.3295 9.27024 14.1534 10.0004 14.1534C10.7305 14.1534 11.3583 14.3295 11.8839 14.6818C12.4123 15.0341 12.8185 15.5455 13.1026 16.2159C13.3867 16.8835 13.5273 17.6932 13.5245 18.6449C13.5245 19.6023 13.3825 20.4205 13.0984 21.0994C12.8171 21.7784 12.4137 22.2969 11.8881 22.6548C11.3626 23.0128 10.7333 23.1918 10.0004 23.1918ZM10.0004 21.6619C10.5004 21.6619 10.8995 21.4105 11.1978 20.9077C11.4961 20.4048 11.6438 19.6506 11.641 18.6449C11.641 17.983 11.5728 17.4318 11.4364 16.9915C11.3029 16.5511 11.1126 16.2202 10.8654 15.9986C10.6211 15.777 10.3327 15.6662 10.0004 15.6662C9.5032 15.6662 9.10547 15.9148 8.80717 16.4119C8.50888 16.9091 8.35831 17.6534 8.35547 18.6449C8.35547 19.3153 8.42223 19.875 8.55575 20.3239C8.69212 20.7699 8.88388 21.1051 9.13104 21.3295C9.3782 21.5511 9.66797 21.6619 10.0004 21.6619Z"
+                                    fill="currentColor"></path>
+                            </svg>
+                        </button>
+
+                        <button class="ctrl-btn"
+                            onclick="var v=document.getElementById('v');v.currentTime=Math.min(v.duration||0,v.currentTime+10);">
+                            <svg width="1em" height="1em" viewBox="0 0 26 24" fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    d="M11.3333 12.3333L16 7.66667M16 7.66667L11.3333 3M16 7.66667H6.66667C5.42899 7.66667 4.242 8.15833 3.36684 9.0335C2.49167 9.90867 2 11.0957 2 12.3333C2 13.571 2.49167 14.758 3.36684 15.6332C4.242 16.5083 5.42899 17 6.66667 17H9"
+                                    stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                                    stroke-linejoin="round"></path>
+                                <path
+                                    d="M16.5043 14.2727V23H14.6591V16.0241H14.608L12.6094 17.277V15.6406L14.7699 14.2727H16.5043ZM22.0004 23.1918C21.2674 23.1889 20.6367 23.0085 20.1083 22.6506C19.5827 22.2926 19.1779 21.7741 18.8938 21.0952C18.6126 20.4162 18.4734 19.5994 18.4762 18.6449C18.4762 17.6932 18.6168 16.8821 18.8981 16.2116C19.1822 15.5412 19.587 15.0312 20.1126 14.6818C20.641 14.3295 21.2702 14.1534 22.0004 14.1534C22.7305 14.1534 23.3583 14.3295 23.8839 14.6818C24.4123 15.0341 24.8185 15.5455 25.1026 16.2159C25.3867 16.8835 25.5273 17.6932 25.5245 18.6449C25.5245 19.6023 25.3825 20.4205 25.0984 21.0994C24.8171 21.7784 24.4137 22.2969 23.8881 22.6548C23.3626 23.0128 22.7333 23.1918 22.0004 23.1918ZM22.0004 21.6619C22.5004 21.6619 22.8995 21.4105 23.1978 20.9077C23.4961 20.4048 23.6438 19.6506 23.641 18.6449C23.641 17.983 23.5728 17.4318 23.4364 16.9915C23.3029 16.5511 23.1126 16.2202 22.8654 15.9986C22.6211 15.777 22.3327 15.6662 22.0004 15.6662C21.5032 15.6662 21.1055 15.9148 20.8072 16.4119C20.5089 16.9091 20.3583 17.6534 20.3555 18.6449C20.3555 19.3153 20.4222 19.875 20.5558 20.3239C20.6921 20.7699 20.8839 21.1051 21.131 21.3295C21.3782 21.5511 21.668 21.6619 22.0004 21.6619Z"
+                                    fill="currentColor"></path>
+                            </svg>
+                        </button>
                     </div>
-                    <div id="time-row">
-                        <span id="t-cur">0:00</span>
-                        <span>/</span>
-                        <span id="t-dur">0:00</span>
-                    </div>
-                    <button id="btn-episodes" class="ctrl-btn" title="Episodes" style="display:none;">
-                        <i class="fa-solid fa-list"></i>
-                        <span>Episodes</span>
-                    </button>
-                    <div class="ctrl-spacer"></div>
-                    <div class="right-controls">
-                        <span id="ep-current-title" class="ep-current-title-label"></span>
+                    <div class="ctrl-center">
+                        <button id="btn-subtitles-shortcut" class="ctrl-btn">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 25 20"
+                                fill="currentColor">
+                                <path transform="translate(-3 -6)"
+                                    d="M25.5,6H5.5A2.507,2.507,0,0,0,3,8.5v15A2.507,2.507,0,0,0,5.5,26h20A2.507,2.507,0,0,0,28,23.5V8.5A2.507,2.507,0,0,0,25.5,6ZM5.5,16h5v2.5h-5ZM18,23.5H5.5V21H18Zm7.5,0h-5V21h5Zm0-5H13V16H25.5Z">
+                                </path>
+                            </svg>
+                        </button>
+                        <button id="btn-episodes" class="ctrl-btn" title="Episodes" style="display:none;">
+                            <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" clip-rule="evenodd"
+                                    d="M3 4C1.34315 4 0 5.34314 0 7V13.9496C0 15.6065 1.34315 16.9496 3 16.9496H5.86645V14.9496H3C2.44772 14.9496 2 14.5019 2 13.9496V7C2 6.44771 2.44771 6 3 6H16.0327C16.585 6 17.0327 6.44772 17.0327 7V9.86645H19.0327V7C19.0327 5.34315 17.6896 4 16.0327 4H3Z"
+                                    fill="currentColor"></path>
+                                <rect x="5.89929" y="10.5444" width="17" height="10" rx="2" stroke="currentColor"
+                                    stroke-width="2"></rect>
+                            </svg>
+                            <span class="ctrl-text">Episodes</span>
+                        </button>
+                        <button id="btn-pip" class="ctrl-btn">
+                            <svg xmlns="http://www.w3.org/2000/svg" height="1em" width="1em" fill="currentColor"
+                                viewBox="0 0 24 24">
+                                <path d="M0 0h24v24H0z" fill="none"></path>
+                                <path
+                                    d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 1.98 2 1.98h18c1.1 0 2-.88 2-1.98V5c0-1.1-.9-2-2-2zm0 16.01H3V4.98h18v14.03z">
+                                </path>
+                            </svg>
+                        </button>
                         <div id="settings-btn-wrap">
-                            <button id="btn-settings" class="ctrl-btn" title="Settings"><i
-                                    class="fa-solid fa-cog"></i></button>
+                            <button id="btn-settings" class="ctrl-btn" title="Settings">
+                                <svg fill="currentColor" width="1em" height="1em" viewBox="0 0 48.4 48.4"
+                                    xmlns="http://www.w3.org/2000/svg">
+                                    <path
+                                        d="M48.4,24.2c0-1.8-1.297-3.719-2.896-4.285s-3.149-1.952-3.6-3.045c-0.451-1.093-0.334-3.173,0.396-4.705 c0.729-1.532,0.287-3.807-0.986-5.08c-1.272-1.273-3.547-1.714-5.08-0.985c-1.532,0.729-3.609,0.848-4.699,0.397 s-2.477-2.003-3.045-3.602C27.921,1.296,26,0,24.2,0c-1.8,0-3.721,1.296-4.29,2.895c-0.569,1.599-1.955,3.151-3.045,3.602 c-1.09,0.451-3.168,0.332-4.7-0.397c-1.532-0.729-3.807-0.288-5.08,0.985c-1.273,1.273-1.714,3.547-0.985,5.08 c0.729,1.533,0.845,3.611,0.392,4.703c-0.453,1.092-1.998,2.481-3.597,3.047S0,22.4,0,24.2s1.296,3.721,2.895,4.29 c1.599,0.568,3.146,1.957,3.599,3.047c0.453,1.089,0.335,3.166-0.394,4.698s-0.288,3.807,0.985,5.08 c1.273,1.272,3.547,1.714,5.08,0.985c1.533-0.729,3.61-0.847,4.7-0.395c1.091,0.452,2.476,2.008,3.045,3.604 c0.569,1.596,2.49,2.891,4.29,2.891c1.8,0,3.721-1.295,4.29-2.891c0.568-1.596,1.953-3.15,3.043-3.604 c1.09-0.453,3.17-0.334,4.701,0.396c1.533,0.729,3.808,0.287,5.08-0.985c1.273-1.273,1.715-3.548,0.986-5.08 c-0.729-1.533-0.849-3.61-0.398-4.7c0.451-1.09,2.004-2.477,3.603-3.045C47.104,27.921,48.4,26,48.4,24.2z M24.2,33.08 c-4.91,0-8.88-3.97-8.88-8.87c0-4.91,3.97-8.88,8.88-8.88c4.899,0,8.87,3.97,8.87,8.88C33.07,29.11,29.1,33.08,24.2,33.08z">
+                                    </path>
+                                </svg>
+                            </button>
                         </div>
-                        <button id="btn-pip" class="ctrl-btn"><i class="fa-solid fa-window-restore"></i></button>
-                        <button id="btn-fullscreen" class="ctrl-btn"><i class="fa-solid fa-expand"></i></button>
                     </div>
+                    <button id="btn-fullscreen" class="ctrl-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 448 512"
+                            fill="currentColor">
+                            <path
+                                d="M32 32C14.3 32 0 46.3 0 64v96c0 17.7 14.3 32 32 32s32-14.3 32-32V96h64c17.7 0 32-14.3 32-32s-14.3-32-32-32H32zM64 352c0-17.7-14.3-32-32-32s-32 14.3-32 32v96c0 17.7 14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32H64V352zM320 32c-17.7 0-32 14.3-32 32s14.3 32 32 32h64v64c0 17.7 14.3 32 32 32s32-14.3 32-32V64c0-17.7-14.3-32-32-32H320zM448 352c0-17.7-14.3-32-32-32s-32 14.3-32 32v64H320c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32V352z">
+                            </path>
+                        </svg>
+                    </button>
+                    <span id="ep-current-title" class="ep-current-title-label"></span>
                 </div>
             </div>
         </div>

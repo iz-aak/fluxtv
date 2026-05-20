@@ -1,5 +1,5 @@
 :root {
-    --font: 'Manrope', sans-serif;
+    --font: 'DM Sans', sans-serif;
     --bg: #000;
     --white: #fff;
     --white-92: rgba(255, 255, 255, 0.92);
@@ -31,7 +31,7 @@
 
     --ctrl-size: 45px;
     --ctrl-size-sm: 36px;
-    --ctrl-icon-size: 18px;
+    --ctrl-icon-size: 1.5rem;
     --thumb-size: 16px;
     --track-h: 5px;
     --track-h-hover: 8px;
