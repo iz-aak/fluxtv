@@ -1280,7 +1280,7 @@ function play(raw, skipProxy, videoId) {
             testBandwidth: true,
             xhrSetup: function (xhr, url) {
                 xhr.withCredentials = false;
-                if (url && url.startsWith('http://missourimonster-vyla.hf.space')) {
+                if (url && url.startsWith(baseURL)) {
                     url = url.replace('http://', 'https://');
                     xhr.open('GET', url, true);
                 }
@@ -3126,12 +3126,10 @@ function play(raw, skipProxy, videoId) {
     var nextEpReady = false;
 
     function checkAndShowNextEpBtn() {
-        console.log('[NextEp] check called — btn:', !!nextEpBtn, 'ready:', nextEpReady, 'duration:', v.duration, 'current:', v.currentTime);
-        if (!nextEpBtn) { console.warn('[NextEp] nextEpBtn element not found'); return; }
-        if (!nextEpReady) { console.warn('[NextEp] nextEpReady is false'); return; }
-        if (!v.duration || v.duration < 60) { console.warn('[NextEp] duration invalid:', v.duration); return; }
+        if (!nextEpBtn) { return; }
+        if (!nextEpReady) { return; }
+        if (!v.duration || v.duration < 60) { return; }
         var remaining = v.duration - v.currentTime;
-        console.log('[NextEp] remaining:', remaining, '— will show:', remaining <= 300);
         nextEpBtn.style.display = '';
         if (remaining <= 300) {
             nextEpBtn.classList.add('show');
@@ -3149,19 +3147,16 @@ function play(raw, skipProxy, videoId) {
         var nextE = parseInt(e || '1') + 1;
         var nextS = parseInt(s);
 
-        console.log('[NextEp] fetching next episode — S' + nextS + 'E' + nextE);
         fetch(baseURL + '/api/tv?id=' + id + '&season=' + nextS + '&episode=' + nextE)
             .then(function (r) { return r.json(); })
             .then(function (d) {
-                console.log('[NextEp] fetch result:', d);
                 var t = d.meta ? (d.meta.title || d.meta.name || 'Unknown') : 'Unknown';
                 nextEpLabel.textContent = 'S' + nextS + ' E' + nextE + ' \u00b7 ' + t;
                 nextEpHref = location.pathname + '?id=' + id + '&season=' + nextS + '&episode=' + nextE + '&ap=1';
                 nextEpReady = true;
-                console.log('[NextEp] ready! href:', nextEpHref);
                 checkAndShowNextEpBtn();
             })
-            .catch(function (err) { console.error('[NextEp] fetch error:', err); });
+            .catch(function () { });
 
         nextEpInner.addEventListener('click', function () {
             if (nextEpHref) location.href = nextEpHref;
