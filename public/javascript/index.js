@@ -1076,7 +1076,8 @@ function play(raw, skipProxy, videoId) {
             if (v.readyState >= 2) return;
             retryCount++;
             showBuffering();
-            if (Hls.isSupported()) {
+            var isMp4 = /\.mp4(?:\?|$)/i.test(src) || !/m3u8/i.test(src);
+            if (!isMp4 && Hls.isSupported()) {
                 hls.stopLoad();
                 hls.startLoad();
             }
@@ -1255,7 +1256,8 @@ function play(raw, skipProxy, videoId) {
         if (typeof updateQualityRowUI === 'function') updateQualityRowUI();
     }
 
-    if (Hls.isSupported()) {
+    var isMp4 = /\.mp4(?:\?|$)/i.test(src);
+    if (!isMp4 && Hls.isSupported()) {
         var hlsConfig = {
             startLevel: -1,
             maxBufferLength: 30,
@@ -1355,7 +1357,7 @@ function play(raw, skipProxy, videoId) {
             restoreTimestamp();
         });
 
-    } else if (v.canPlayType('application/vnd.apple.mpegurl')) {
+    } else if (isMp4 || v.canPlayType('application/vnd.apple.mpegurl')) {
         showBufferingImmediate();
         v.src = src;
         v.addEventListener('loadedmetadata', function () {
@@ -2630,14 +2632,15 @@ function play(raw, skipProxy, videoId) {
         });
     });
 
-    function switchSource(url) {
+    function switchSource(url, forceMp4) {
         var wasPlaying = !v.paused;
         var savedTime = v.currentTime;
         var cancelled = false;
+        var isMp4 = forceMp4 || /\.mp4(?:\?|$)/i.test(url) || !/m3u8/i.test(url);
 
-        if (Hls.isSupported() && typeof hls !== 'undefined') {
+        if (!isMp4 && Hls.isSupported() && typeof hls !== 'undefined') {
             showBufferingImmediate();
-            hls.destroy();
+            if (hls) hls.destroy();
             hls = new Hls({
                 startLevel: -1,
                 maxBufferLength: 30,
@@ -2662,7 +2665,10 @@ function play(raw, skipProxy, videoId) {
                 v.currentTime = savedTime;
                 if (wasPlaying) v.play();
             }, { once: true });
-        } else if (v.canPlayType('application/vnd.apple.mpegurl')) {
+        } else if (isMp4 || v.canPlayType('application/vnd.apple.mpegurl')) {
+            if (typeof hls !== 'undefined' && hls) {
+                hls.destroy();
+            }
             showBufferingImmediate();
             v.src = url;
             v.load();
@@ -2770,7 +2776,9 @@ function play(raw, skipProxy, videoId) {
                 clearTimeout(timer);
                 currentSourceIndex = idx;
                 closeSettings();
-                switchSource(source.url || testUrl);
+                var ct = r.headers.get('content-type') || '';
+                var isMp4 = ct.includes('mp4') || ct.includes('video/mp4');
+                switchSource(source.url || testUrl, isMp4);
                 buildSourceList();
             })
             .catch(function () {
@@ -2778,7 +2786,7 @@ function play(raw, skipProxy, videoId) {
                 clearTimeout(timer);
                 currentSourceIndex = idx;
                 closeSettings();
-                switchSource(source.url || testUrl);
+                switchSource(source.url || testUrl, false);
                 buildSourceList();
             });
 
