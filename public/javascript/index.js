@@ -476,7 +476,7 @@ fetch('https://restcountries.com/v3.1/all?fields=cca2,languages')
 
     });
 
-function play(raw, skipProxy, videoId) {
+function play(raw, videoId) {
     (function () {
         if (document.getElementById('_vyla_styles')) return;
         var st = document.createElement('style');
@@ -485,7 +485,7 @@ function play(raw, skipProxy, videoId) {
         document.head.appendChild(st);
     })();
 
-    var src = (skipProxy || raw.startsWith(baseURL)) ? raw : (raw.startsWith('/api') ? baseURL + raw : baseURL + '/api/movie?url=' + encodeURIComponent(raw));
+    var src = (raw.startsWith(baseURL)) ? raw : (raw.startsWith('/api') ? baseURL + raw : baseURL + '/api?url=' + encodeURIComponent(raw) + '&vn=1');
     var v = document.getElementById('v');
     var controlsWrapper = document.getElementById('player-controls-wrapper');
     var titleBar = document.getElementById('title-bar');
@@ -2632,15 +2632,24 @@ function play(raw, skipProxy, videoId) {
         });
     });
 
+    function toProxiedHls(url) {
+        if (!url) return url;
+        if (url.startsWith(baseURL)) return url;
+        return baseURL + '/api?url=' + encodeURIComponent(url) + '&vn=1';
+    }
+
     function switchSource(url, forceMp4) {
         var wasPlaying = !v.paused;
         var savedTime = v.currentTime;
-        var cancelled = false;
-        var isMp4 = forceMp4 || /\.mp4(?:\?|$)/i.test(url) || !/m3u8/i.test(url);
+        var isMp4 = forceMp4 || (/\.mp4(?:\?|$)/i.test(url) && !/m3u8/i.test(url));
+        var loadUrl = isMp4 ? url : toProxiedHls(url);
 
-        if (!isMp4 && Hls.isSupported() && typeof hls !== 'undefined') {
+        if (typeof hls !== 'undefined' && hls && hls.destroy) {
+            try { hls.destroy(); } catch (ex) { }
+        }
+
+        if (!isMp4 && Hls.isSupported()) {
             showBufferingImmediate();
-            if (hls) hls.destroy();
             hls = new Hls({
                 startLevel: -1,
                 maxBufferLength: 30,
@@ -2653,31 +2662,38 @@ function play(raw, skipProxy, videoId) {
                 manifestLoadingTimeOut: 20000,
                 levelLoadingTimeOut: 20000,
             });
-            hls.loadSource(url);
+            hls.loadSource(loadUrl);
             hls.attachMedia(v);
             hls.on(Hls.Events.MANIFEST_PARSED, function () {
+                hideBuffering();
                 buildQualityOpts();
+                v.currentTime = savedTime;
+                if (wasPlaying) v.play();
             });
-            v.addEventListener('canplay', function onSwitch() {
-                v.removeEventListener('canplay', onSwitch);
-                if (cancelled) return;
+            hls.on(Hls.Events.ERROR, function (event, data) {
+                if (data.fatal) {
+                    hideBuffering();
+                    var errText = document.querySelector('.err-text');
+                    if (errText) errText.innerHTML = 'Source Not Found';
+                    document.getElementById('error-screen').classList.add('show');
+                }
+            });
+        } else if (isMp4 || v.canPlayType('application/vnd.apple.mpegurl')) {
+            showBufferingImmediate();
+            v.src = loadUrl;
+            v.load();
+            v.addEventListener('canplay', function onSwitchNative() {
+                v.removeEventListener('canplay', onSwitchNative);
                 hideBuffering();
                 v.currentTime = savedTime;
                 if (wasPlaying) v.play();
             }, { once: true });
-        } else if (isMp4 || v.canPlayType('application/vnd.apple.mpegurl')) {
-            if (typeof hls !== 'undefined' && hls) {
-                hls.destroy();
-            }
-            showBufferingImmediate();
-            v.src = url;
-            v.load();
-            v.addEventListener('canplay', function onSwitchNative() {
-                v.removeEventListener('canplay', onSwitchNative);
-                if (cancelled) return;
+            v.addEventListener('error', function onSwitchErr() {
+                v.removeEventListener('error', onSwitchErr);
                 hideBuffering();
-                v.currentTime = savedTime;
-                if (wasPlaying) v.play();
+                var errText = document.querySelector('.err-text');
+                if (errText) errText.innerHTML = 'Source Not Found';
+                document.getElementById('error-screen').classList.add('show');
             }, { once: true });
         }
     }
