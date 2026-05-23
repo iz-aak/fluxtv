@@ -2031,7 +2031,6 @@ video {
     justify-content: center;
     color: var(--white-85);
     background-color: var(--white-03);
-    width: 80vw;
     margin-top: var(--space-lg);
     margin-bottom: var(--space-md);
 }
