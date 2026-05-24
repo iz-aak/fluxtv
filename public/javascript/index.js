@@ -526,15 +526,18 @@ function play(raw, videoId) {
         document.head.appendChild(st);
     })();
 
-    var src = (raw.startsWith(baseURL)) ? raw : (raw.startsWith('/api') ? baseURL + raw : baseURL + '/api?url=' + encodeURIComponent(raw) + '&vn=1');
+    var src = raw;
     var v = document.getElementById('v');
     (function () {
+        if (v._vylaHooked) return;
+        v._vylaHooked = true;
         var _origSetSrc = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'src');
         Object.defineProperty(v, 'src', {
             get: function () { return _origSetSrc.get.call(v); },
             set: function (val) {
                 _origSetSrc.set.call(v, val);
-            }
+            },
+            configurable: true
         });
 
         var _origLoad = v.load.bind(v);
