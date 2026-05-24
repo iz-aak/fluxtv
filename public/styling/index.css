@@ -1396,10 +1396,12 @@ video {
 }
 
 #main-discord-btn {
-    color: var(--white-85);
-    background-color: var(--white-03);
+    color: var(--black-85);
+    background-color: var(--white);
     padding: 10px 15px;
     margin: 10px 0;
+    text-align: center;
+    margin-top: 40px;
 }
 
 @keyframes viewFadeIn {

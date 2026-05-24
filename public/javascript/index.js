@@ -1130,12 +1130,12 @@ function play(raw, videoId) {
     v.addEventListener('playing', hideBuffering);
     v.addEventListener('canplay', hideBuffering);
 
+    var _videoErrBlocked = false;
     v.addEventListener('error', function () {
+        if (_videoErrBlocked) return;
         var errText = document.querySelector('.err-text');
         var errSub = document.querySelector('.err-sub');
-        if (errText) {
-            errText.innerHTML = 'Source Not Found';
-        }
+        if (errText) errText.innerHTML = 'Source Not Found';
         if (!errSub && errText) {
             errText.insertAdjacentHTML('afterend', '<div class="err-sub">The video source could not be loaded. It may be unavailable or the URL may be incorrect.</div>');
         } else if (errSub) {
@@ -1287,6 +1287,7 @@ function play(raw, videoId) {
             },
         };
         var hls = new Hls(hlsConfig);
+        var _manifestParsed = false;
         showBufferingImmediate();
         hls.loadSource(src);
         hls.attachMedia(v);
@@ -1315,6 +1316,7 @@ function play(raw, videoId) {
 
         hls.on(Hls.Events.MANIFEST_PARSED, function () {
             if (_srcSettled) return;
+            _manifestParsed = true;
             _srcSettled = true;
             clearTimeout(_stallTimer);
             hideBuffering();
@@ -1333,6 +1335,7 @@ function play(raw, videoId) {
         });
 
         hls.on(Hls.Events.ERROR, function (event, data) {
+            if (!_manifestParsed) return;
             if (data.fatal) {
                 if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
                     if (data.details === 'keyLoadError') return;
@@ -2635,67 +2638,96 @@ function play(raw, videoId) {
     function toProxiedHls(url) {
         if (!url) return url;
         if (url.startsWith(baseURL)) return url;
+        try {
+            var parsed = new URL(url);
+            if (parsed.searchParams.has('url') || parsed.searchParams.has('m3u8')) return url;
+        } catch (ex) { }
         return baseURL + '/api?url=' + encodeURIComponent(url) + '&vn=1';
     }
 
     function switchSource(url, forceMp4) {
         var wasPlaying = !v.paused;
         var savedTime = v.currentTime;
-        var isMp4 = forceMp4 || (/\.mp4(?:\?|$)/i.test(url) && !/m3u8/i.test(url));
-        var loadUrl = isMp4 ? url : toProxiedHls(url);
+
+        var errScreen = document.getElementById('error-screen');
+        if (errScreen) errScreen.classList.remove('show');
+
+        _videoErrBlocked = true;
 
         if (typeof hls !== 'undefined' && hls && hls.destroy) {
             try { hls.destroy(); } catch (ex) { }
         }
 
-        if (!isMp4 && Hls.isSupported()) {
-            showBufferingImmediate();
-            hls = new Hls({
-                startLevel: -1,
-                maxBufferLength: 30,
-                maxMaxBufferLength: 60,
-                maxBufferSize: 60 * 1000 * 1000,
-                backBufferLength: 10,
-                maxBufferHole: 0.5,
-                nudgeMaxRetry: 5,
-                fragLoadingTimeOut: 20000,
-                manifestLoadingTimeOut: 20000,
-                levelLoadingTimeOut: 20000,
-            });
-            hls.loadSource(loadUrl);
-            hls.attachMedia(v);
-            hls.on(Hls.Events.MANIFEST_PARSED, function () {
-                hideBuffering();
-                buildQualityOpts();
-                v.currentTime = savedTime;
-                if (wasPlaying) v.play();
-            });
-            hls.on(Hls.Events.ERROR, function (event, data) {
-                if (data.fatal) {
+        setTimeout(function () { _videoErrBlocked = false; }, 2000);
+
+        function doSwitch(isMp4) {
+            var loadUrl = isMp4 ? url : toProxiedHls(url);
+
+            if (!isMp4 && Hls.isSupported()) {
+                var _switchManifestParsed = false;
+                showBufferingImmediate();
+                hls = new Hls({
+                    startLevel: -1,
+                    maxBufferLength: 30,
+                    maxMaxBufferLength: 60,
+                    maxBufferSize: 60 * 1000 * 1000,
+                    backBufferLength: 10,
+                    maxBufferHole: 0.5,
+                    nudgeMaxRetry: 5,
+                    fragLoadingTimeOut: 20000,
+                    manifestLoadingTimeOut: 20000,
+                    levelLoadingTimeOut: 20000,
+                });
+                hls.loadSource(loadUrl);
+                hls.attachMedia(v);
+                hls.on(Hls.Events.MANIFEST_PARSED, function () {
+                    _switchManifestParsed = true;
                     hideBuffering();
-                    var errText = document.querySelector('.err-text');
-                    if (errText) errText.innerHTML = 'Source Not Found';
-                    document.getElementById('error-screen').classList.add('show');
-                }
-            });
-        } else if (isMp4 || v.canPlayType('application/vnd.apple.mpegurl')) {
-            showBufferingImmediate();
-            v.src = loadUrl;
-            v.load();
-            v.addEventListener('canplay', function onSwitchNative() {
-                v.removeEventListener('canplay', onSwitchNative);
-                hideBuffering();
-                v.currentTime = savedTime;
-                if (wasPlaying) v.play();
-            }, { once: true });
-            v.addEventListener('error', function onSwitchErr() {
-                v.removeEventListener('error', onSwitchErr);
-                hideBuffering();
-                var errText = document.querySelector('.err-text');
-                if (errText) errText.innerHTML = 'Source Not Found';
-                document.getElementById('error-screen').classList.add('show');
-            }, { once: true });
+                    buildQualityOpts();
+                    v.currentTime = savedTime;
+                    if (wasPlaying) v.play();
+                });
+                hls.on(Hls.Events.ERROR, function (event, data) {
+                    if (!_switchManifestParsed) return;
+                    if (data.fatal) {
+                        hideBuffering();
+                        if (errScreen) errScreen.classList.add('show');
+                        var errText = document.querySelector('.err-text');
+                        if (errText) errText.innerHTML = 'Source Not Found';
+                    }
+                });
+            } else if (isMp4 || v.canPlayType('application/vnd.apple.mpegurl')) {
+                showBufferingImmediate();
+                v.src = loadUrl;
+                v.load();
+                v.addEventListener('canplay', function onSwitchNative() {
+                    v.removeEventListener('canplay', onSwitchNative);
+                    hideBuffering();
+                    v.currentTime = savedTime;
+                    if (wasPlaying) v.play();
+                }, { once: true });
+            }
         }
+
+        if (forceMp4 !== undefined && forceMp4 !== null) {
+            doSwitch(forceMp4);
+            return;
+        }
+
+        var looksLikeMp4 = /\.mp4(?:\?|$)/i.test(url) && !/m3u8/i.test(url);
+        if (looksLikeMp4) {
+            doSwitch(true);
+            return;
+        }
+
+        fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(4000) })
+            .then(function (r) {
+                var ct = r.headers.get('content-type') || '';
+                doSwitch(ct.includes('mp4') || ct.includes('video/mp4'));
+            })
+            .catch(function () {
+                doSwitch(false);
+            });
     }
 
     buildSourceList = function () {
@@ -2771,46 +2803,21 @@ function play(raw, videoId) {
             '<span style="width:11px;height:11px;border-radius:50%;background:rgba(255,255,255,0.7);display:inline-block;animation:_vyla_dot 1.4s ease-in-out infinite both;animation-delay:0s;"></span>' +
             '<span style="width:11px;height:11px;border-radius:50%;background:rgba(255,255,255,0.7);display:inline-block;animation:_vyla_dot 1.4s ease-in-out infinite both;animation-delay:0.16s;"></span>' +
             '<span style="width:11px;height:11px;border-radius:50%;background:rgba(255,255,255,0.7);display:inline-block;animation:_vyla_dot 1.4s ease-in-out infinite both;animation-delay:0.32s;"></span>' +
-            '<span style="width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,0.4);display:inline-block;animation:_vyla_dot 1.4s ease-in-out infinite both;animation-delay:0.48s;"></span>' +
             '</div></div>';
 
         listView.style.display = 'none';
         detailView.style.display = 'flex';
 
-        var timeout = source.timeout || 15000;
-        var cancelled = false;
+        currentSourceIndex = idx;
+        closeSettings();
+        var _isSourceMp4 = /\.mp4(?:\?|$)/i.test(source.url) && !/m3u8/i.test(source.url);
+        switchSource(source.url, _isSourceMp4 ? true : undefined);
 
-        var timer = setTimeout(function () {
-            if (cancelled) return;
-            showSrcFailed(detailBody);
-        }, timeout);
-
-        var testUrl = source.url || (baseURL + '/' + (s ? 'api/tv?id=' + id + '&season=' + s + '&episode=' + (e || '1') : 'api/movie?id=' + id));
-        fetch(testUrl, { method: 'HEAD' })
-            .then(function (r) {
-                if (cancelled) return;
-                clearTimeout(timer);
-                currentSourceIndex = idx;
-                closeSettings();
-                var ct = r.headers.get('content-type') || '';
-                var isMp4 = ct.includes('mp4') || ct.includes('video/mp4');
-                switchSource(source.url || testUrl, isMp4);
-                buildSourceList();
-            })
-            .catch(function () {
-                if (cancelled) return;
-                clearTimeout(timer);
-                currentSourceIndex = idx;
-                closeSettings();
-                switchSource(source.url || testUrl, false);
-                buildSourceList();
-            });
+        buildSourceList();
 
         var backBtn = document.getElementById('src-detail-back');
         if (backBtn) {
             backBtn.onclick = function () {
-                cancelled = true;
-                clearTimeout(timer);
                 detailView.style.display = 'none';
                 listView.style.display = 'flex';
             };
