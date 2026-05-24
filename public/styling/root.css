@@ -70,7 +70,7 @@
     --settings-max-h-landscape: 75vh;
     --settings-radius: 18px;
     --settings-radius-desktop: 16px;
-    --close-btn-radius: 14px;
+    --close-btn-radius: 100px;
 
     --toast-top: 28px;
     --floating-btn-bottom: 100px;

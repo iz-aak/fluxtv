@@ -1455,7 +1455,6 @@ video {
         width: var(--settings-width-desktop);
         padding: 13px;
         font-size: 14px;
-        border-radius: 12px;
         margin-bottom: 0;
         position: sticky;
         bottom: 0;
@@ -1506,7 +1505,6 @@ video {
 
     #settings-close-btn {
         width: var(--settings-width-landscape);
-        border-radius: 12px;
     }
 
     #ep-panel>div {

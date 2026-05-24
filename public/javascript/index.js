@@ -1371,7 +1371,7 @@ function play(raw, videoId) {
         }
     }
 
-    if (isTedub && Hls.isSupported()) {
+    if (isTedub && Hls.isSupported() && !isIOS()) {
         var hls = new Hls({
             startLevel: -1,
             maxBufferLength: 30,
@@ -1412,7 +1412,24 @@ function play(raw, videoId) {
             tDur.textContent = fmt(v.duration);
             restoreTimestamp();
         });
-    } else if (!isMp4 && Hls.isSupported()) {
+    }
+
+    else if (isTedub && isIOS() && v.canPlayType('application/vnd.apple.mpegurl')) {
+        showBufferingImmediate();
+        v.src = src;
+        v.addEventListener('loadedmetadata', function () {
+            hideBuffering();
+            onReady();
+            startDurationPoll();
+        });
+        v.addEventListener('canplay', function () {
+            if (isNaN(v.duration) || v.duration === 0) return;
+            tDur.textContent = fmt(v.duration);
+            restoreTimestamp();
+        });
+    }
+
+    else if (!isMp4 && Hls.isSupported()) {
 
         var hlsConfig = {
             startLevel: -1,
