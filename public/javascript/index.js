@@ -1984,8 +1984,11 @@ function play(raw, videoId) {
         }
         cont.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;padding:40px 0;"><svg width="32" height="32" viewBox="0 0 52 52" style="animation:_vyla_spin 0.9s linear infinite"><circle cx="26" cy="26" r="22" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="3.5" stroke-dasharray="100" stroke-dashoffset="70"/></svg></div>';
         var tmdbId = id;
-        var apiUrl = 'https://api.theintrodb.org/v2/media?tmdb_id=' + tmdbId;
+        var apiUrl = 'https://api.theintrodb.org/v3/media?tmdb_id=' + tmdbId;
         if (s) apiUrl += '&season=' + s + '&episode=' + (e || '1');
+        if (v && v.duration && !isNaN(v.duration)) {
+            apiUrl += '&duration_ms=' + Math.round(v.duration * 1000);
+        }
         fetch(apiUrl)
             .then(function (r) { return r.json(); })
             .then(function (d) {
@@ -2089,14 +2092,12 @@ function play(raw, videoId) {
             var arr = _segmentsData[t];
             if (!arr || !arr.length) return;
             arr.forEach(function (seg) {
-                if (seg.start_ms != null || seg.end_ms != null) {
-                    var cfg = segTypeConfig[t] || { btnLabel: 'Skip' };
-                    _skipSegments.push({
-                        start: seg.start_ms != null ? seg.start_ms / 1000 : 0,
-                        end: seg.end_ms != null ? seg.end_ms / 1000 : (v.duration || 0),
-                        label: cfg.btnLabel
-                    });
-                }
+                var cfg = segTypeConfig[t] || { btnLabel: 'Skip' };
+                _skipSegments.push({
+                    start: seg.start_ms != null ? seg.start_ms / 1000 : 0,
+                    end: seg.end_ms != null ? seg.end_ms / 1000 : (v.duration || 0),
+                    label: cfg.btnLabel
+                });
             });
         });
 
@@ -2132,7 +2133,7 @@ function play(raw, videoId) {
         function updateSegmentEndTimes() {
             if (v.duration && v.duration > 0) {
                 _skipSegments.forEach(function (seg) {
-                    if (seg.end === 0) {
+                    if (seg.end === 0 || isNaN(seg.end)) {
                         seg.end = v.duration;
                     }
                 });

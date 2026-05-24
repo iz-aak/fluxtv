@@ -418,6 +418,12 @@ video {
     transition: transform 0.08s ease;
 }
 
+.ctrl-btn img {
+    width: 24px;
+    object-fit: contain;
+    display: block;
+}
+
 #btn-episodes {
     width: auto;
     padding: 0 10px;
@@ -603,6 +609,10 @@ video {
 @media (min-width: 769px) and (orientation: landscape) {
     #volume-wrap {
         display: none !important;
+    }
+
+    #track-wrap {
+        min-height: 0px;
     }
 }
 
@@ -1402,6 +1412,7 @@ video {
     margin: 10px 0;
     text-align: center;
     margin-top: 40px;
+    border-radius: 100px;
 }
 
 @keyframes viewFadeIn {
@@ -2035,6 +2046,7 @@ video {
     background-color: var(--white-03);
     margin-top: var(--space-lg);
     margin-bottom: var(--space-md);
+    border-radius: 100px;
 }
 
 .quality-row {
