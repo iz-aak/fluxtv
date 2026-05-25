@@ -1,5 +1,5 @@
 var TMDB_KEY = '338a47b75eab45d9e64e67088f910f93';
-var baseURL = "https://missourimonster-vyla.hf.space";
+var baseURL = "https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space";
 
 var alive = true;
 var shouldHideLoader = false;
