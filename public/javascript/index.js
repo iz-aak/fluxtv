@@ -183,7 +183,6 @@ if (id) {
                 const msg = JSON.parse(event.data);
 
                 if (msg.type === "meta") {
-                    // optional: store metadata/subtitles
                     return;
                 }
 
