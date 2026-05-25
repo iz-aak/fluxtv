@@ -1,43 +1,8 @@
 var TMDB_KEY = '338a47b75eab45d9e64e67088f910f93';
-var baseURL = "https://missourimonster-vyla.hf.space";
+var baseURL = "https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space";
 
 var alive = true;
 var shouldHideLoader = false;
-
-(function () {
-    var _origShow = document.getElementById('error-screen').classList.add.bind(document.getElementById('error-screen').classList);
-    var errScreen = document.getElementById('error-screen');
-    var _origClassList = errScreen.classList;
-    var _origAdd = errScreen.classList.add.bind(errScreen.classList);
-
-    Object.defineProperty(errScreen, 'classList', {
-        get: function () {
-            return new Proxy(_origClassList, {
-                get: function (target, prop) {
-                    if (prop === 'add') {
-                        return function () {
-                            var args = Array.prototype.slice.call(arguments);
-                            if (args.indexOf('show') !== -1) {
-                                var trace = new Error('error-screen.classList.add("show") called').stack;
-                                var dbg = document.getElementById('_vyla_dbg');
-                                if (!dbg) {
-                                    dbg = document.createElement('div');
-                                    dbg.id = '_vyla_dbg';
-                                    dbg.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:99999;background:rgba(0,0,0,0.92);color:#0f0;font-family:monospace;font-size:10px;padding:10px;max-height:40vh;overflow-y:auto;white-space:pre-wrap;word-break:break-all;pointer-events:none;';
-                                    document.body.appendChild(dbg);
-                                }
-                                dbg.textContent = '[error-screen shown at ' + new Date().toISOString() + ']\n\nv.error: ' + (v && v.error ? 'code=' + v.error.code + ' msg=' + v.error.message : 'null') + '\nv.readyState: ' + (v ? v.readyState : '?') + '\nv.src: ' + (v ? v.src.slice(0, 120) : '?') + '\nv.networkState: ' + (v ? v.networkState : '?') + '\n\nStack:\n' + trace;
-                            }
-                            return _origAdd.apply(null, args);
-                        };
-                    }
-                    var val = target[prop];
-                    return typeof val === 'function' ? val.bind(target) : val;
-                }
-            });
-        }
-    });
-})();
 
 function initLoaderBackdrop() {
     var loaderBg = document.getElementById('loader-bg');
@@ -206,10 +171,9 @@ if (id) {
     })();
 
     function fetchAllSources() {
-        return fetch(baseURL + '/')
+        return fetch(baseURL + '/test')
             .then(function (r) { return r.json(); })
-            .then(function (data) {
-                var bySource = data.tests && data.tests.bySource ? data.tests.bySource : {};
+            .then(function (bySource) {
                 var sourceNames = Object.keys(bySource);
                 if (!sourceNames.length) throw new Error('no sources');
 
@@ -241,17 +205,7 @@ if (id) {
                                         firstResolved = true;
                                         resolve({ first: entry, aggregated: aggregatedSources });
                                     } else {
-                                        var _newSource = aggregatedSources[aggregatedSources.length - 1];
-                                        var _playingUrl = sources[currentSourceIndex] ? sources[currentSourceIndex].url : null;
                                         sources = aggregatedSources.slice();
-                                        if (_playingUrl) {
-                                            for (var _si = 0; _si < sources.length; _si++) {
-                                                if (sources[_si].url === _playingUrl) {
-                                                    currentSourceIndex = _si;
-                                                    break;
-                                                }
-                                            }
-                                        }
                                         if (typeof buildSourceList === 'function') buildSourceList();
                                     }
                                 }
