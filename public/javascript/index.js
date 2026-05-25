@@ -171,62 +171,56 @@ if (id) {
     })();
 
     function fetchAllSources() {
-        return fetch(baseURL + '/test')
-            .then(function (r) { return r.json(); })
-            .then(function (bySource) {
-                var sourceNames = Object.keys(bySource);
-                if (!sourceNames.length) throw new Error('no sources');
+        const url = `${baseURL}/movie?id=${id}`;
 
-                return new Promise(function (resolve, reject) {
-                    var settled = 0;
-                    var total = sourceNames.length;
-                    var aggregatedSources = [];
-                    var firstResolved = false;
+        return new Promise((resolve, reject) => {
+            const sources = [];
+            let firstResolved = false;
 
-                    sourceNames.forEach(function (name) {
-                        var path = s
-                            ? bySource[name].tv.replace('/1396', '/' + id).replace('season=1', 'season=' + s).replace('episode=1', 'episode=' + (e || '1'))
-                            : bySource[name].movie.replace('/155', '/' + id);
+            const es = new EventSource(url);
 
-                        fetch(baseURL + path)
-                            .then(function (r) { return r.json(); })
-                            .then(function (d) {
-                                settled++;
-                                if (d && d.url) {
-                                    var entry = {
-                                        label: name,
-                                        source: name,
-                                        url: d.url.startsWith('/api')
-                                            ? baseURL + d.url
-                                            : d.url
-                                    };
-                                    aggregatedSources.push(entry);
-                                    if (!firstResolved) {
-                                        firstResolved = true;
-                                        resolve({ first: entry, aggregated: aggregatedSources });
-                                    } else {
-                                        sources = aggregatedSources.slice();
-                                        if (typeof buildSourceList === 'function') buildSourceList();
-                                    }
-                                }
-                                if (settled === total && !firstResolved) {
-                                    reject(new Error('no working sources'));
-                                }
-                            })
-                            .catch(function () {
-                                settled++;
-                                if (settled === total && !firstResolved) {
-                                    if (aggregatedSources.length > 0) {
-                                        firstResolved = true;
-                                        resolve({ first: aggregatedSources[0], aggregated: aggregatedSources });
-                                    } else {
-                                        reject(new Error('no working sources'));
-                                    }
-                                }
-                            });
-                    });
-                });
-            });
+            es.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+
+                if (msg.type === "meta") {
+                    // optional: store metadata/subtitles
+                    return;
+                }
+
+                if (msg.type === "source") {
+                    const s = msg.source;
+
+                    const entry = {
+                        label: s.label,
+                        source: s.source,
+                        url: s.url
+                    };
+
+                    sources.push(entry);
+
+                    if (!firstResolved) {
+                        firstResolved = true;
+                        resolve({ first: entry, aggregated: sources });
+                    } else {
+                        if (typeof buildSourceList === "function") buildSourceList();
+                    }
+                }
+
+                if (msg.type === "done") {
+                    es.close();
+                    if (!firstResolved) {
+                        reject(new Error("no working sources"));
+                    }
+                }
+            };
+
+            es.onerror = () => {
+                es.close();
+                if (!firstResolved) {
+                    reject(new Error("stream failed"));
+                }
+            };
+        });
     }
 
     var _allSourcesSettled = false;
