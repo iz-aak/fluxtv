@@ -9,6 +9,7 @@
         "libsodium-wrappers": "^0.7.13"
     },
     "scripts": {
-        "start": "node server.js"
+        "start": "node server.js",
+        "build": "echo \"no build step\""
     }
 }
