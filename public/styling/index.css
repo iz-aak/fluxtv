@@ -1409,10 +1409,10 @@ video {
     color: var(--black-85);
     background-color: var(--white);
     padding: 10px 15px;
-    margin: 10px 0;
+    margin: 10px auto;
     text-align: center;
-    margin-top: 40px;
     border-radius: 100px;
+    width: 100%;
 }
 
 @keyframes viewFadeIn {
@@ -1447,7 +1447,6 @@ video {
 
     #settings-panel {
         width: var(--settings-width-desktop);
-        max-height: 65vh;
         border-radius: var(--settings-radius-desktop);
     }
 
@@ -1501,6 +1500,7 @@ video {
         width: var(--settings-width-landscape);
         max-width: 90vw;
         border-radius: var(--settings-radius-desktop);
+        max-height: 70vh;
     }
 
     #settings-close-btn {
@@ -1520,13 +1520,7 @@ video {
         gap: var(--space-md);
         padding: var(--space-lg);
     }
-
-    #settings-view-main .settings-tile {
-        padding: 20px 18px;
-        border-radius: 14px;
-        background: rgba(255, 255, 255, 0.07);
-    }
-
+    
     #settings-view-main .tile-label {
         font-size: 13px;
         font-weight: 600;
@@ -1784,6 +1778,8 @@ video {
     -ms-overflow-style: none;
     -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%);
     mask-image: linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%);
+    padding-bottom: 10px;
+    padding-top: 10px;
 }
 
 .settings-list::-webkit-scrollbar {
@@ -1804,7 +1800,7 @@ video {
     align-items: center;
     gap: var(--space-lg);
     padding: var(--space-md) var(--space-2xl);
-    width: 95%;
+    width: 100%;
     margin: 0 auto;
     border-radius: var(--space-sm);
     cursor: pointer;
@@ -2044,6 +2040,7 @@ video {
     background-color: var(--white-03);
     margin-top: var(--space-lg);
     margin-bottom: var(--space-md);
+    width: 95%;
     border-radius: 100px;
 }
 
@@ -2191,10 +2188,13 @@ video {
 }
 
 .sources-opts-list {
-    padding: var(--space-sm) var(--space-sm) var(--space-md);
-    max-height: 60vh;
+    padding-bottom: var(--space-md);
+    padding-top: var(--space-md);
+    height: auto;
     flex: 1;
     overflow-y: auto;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%);
 }
 
 .src-detail-body-wrap {

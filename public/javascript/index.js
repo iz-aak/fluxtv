@@ -1566,8 +1566,8 @@ function play(raw, videoId) {
 
     var PROXY = baseURL + '/api/proxy?url=';
     var vylaEndpoint = s
-        ? (baseURL + '/api/subtitles/tv/' + id + '/' + s + '/' + (e || '1'))
-        : (baseURL + '/api/subtitles/movie/' + id);
+        ? (baseURL + '/subtitles/tv/' + id + '/' + s + '/' + (e || '1'))
+        : (baseURL + '/subtitles/movie/' + id);
 
     document.getElementById('lbl-subtitle').textContent = 'Loading\u2026';
 
@@ -1820,7 +1820,7 @@ function play(raw, videoId) {
             row.className = 'sub-entry-row';
             var url = sub.file || sub.url || '';
             var shortUrl = url.replace(/^https?:\/\//, '').substring(0, 28) + (url.length > 28 ? '\u2026' : '');
-            var fmtLabel = (sub.format || (url.toLowerCase().includes('.srt') ? 'srt' : 'vtt')).toUpperCase();
+            var fmtLabel = (sub.format || sub.type || (url.toLowerCase().includes('.srt') ? 'srt' : 'vtt')).toUpperCase();
             var srcName = sub.source || '';
             var entryCode = code || getLangCode(langLabel);
             var entryFlag = entryCode
@@ -2665,8 +2665,8 @@ function play(raw, videoId) {
 
             var episode = e || 1;
             var endpoint = s
-                ? `${baseURL}/api/downloads/tv/${id}/${s}/${episode}`
-                : `${baseURL}/api/downloads/movie/${id}`;
+                ? `${baseURL}/downloads/tv/${id}/${s}/${episode}`
+                : `${baseURL}/downloads/movie/${id}`;
 
             function fetchWithRetry(attempts = 0) {
                 var maxRetries = 2;
