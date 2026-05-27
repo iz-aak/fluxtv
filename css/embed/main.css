@@ -104,7 +104,6 @@
         max-width: 97vw;
         padding: 9px;
         font-size: 12px;
-        margin-bottom: 0;
         position: sticky;
         bottom: 0;
     }
@@ -433,7 +432,6 @@
     }
 
     #settings-modal-wrap {
-        padding: 0 var(--space-md) max(var(--space-md), env(safe-area-inset-bottom, var(--space-md)));
         max-height: 80vh;
         justify-content: flex-end;
     }

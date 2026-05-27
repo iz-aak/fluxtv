@@ -17,9 +17,9 @@
 
 #settings-modal-wrap {
     position: fixed;
-    bottom: -20px;
     left: 0;
     right: 0;
+    margin-bottom: 20px;
     z-index: 9999;
     display: flex;
     flex-direction: column;
@@ -28,7 +28,6 @@
     pointer-events: none;
     opacity: 0;
     transition: opacity 0.28s var(--ease-out), bottom 0.28s var(--ease-out);
-    padding: 0 var(--space-md) max(var(--space-md), env(safe-area-inset-bottom, var(--space-md)));
 }
 
 #settings-modal-wrap.open {
@@ -88,7 +87,7 @@
 }
 
 #settings-close-btn:hover {
-    background: rgba(30, 30, 30, 0.9);
+    background: rgba(0, 0, 0, 0.9);
 }
 
 #settings-close-btn:active {
@@ -630,7 +629,6 @@
         top: auto;
         right: 14px;
         left: auto;
-        bottom: 20px;
         padding: 0;
         align-items: flex-end;
         justify-content: flex-end;
