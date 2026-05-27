@@ -53,22 +53,54 @@ window.play = function (raw, videoId) {
         v.currentTime = Math.max(0, v.currentTime - 10);
         window.haptic();
     });
+    cfSkipLeft.addEventListener('touchend', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        v.currentTime = Math.max(0, v.currentTime - 10);
+        window.haptic();
+    }, { passive: false });
 
     cfSkipRight.addEventListener('click', function (e) {
         e.stopPropagation();
         v.currentTime = Math.min(v.duration || 0, v.currentTime + 10);
         window.haptic();
     });
+    cfSkipRight.addEventListener('touchend', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        v.currentTime = Math.min(v.duration || 0, v.currentTime + 10);
+        window.haptic();
+    }, { passive: false });
 
     ci.style.position = 'relative';
     ci.style.zIndex = '20';
     ci.style.pointerEvents = 'auto';
+    ci.style.touchAction = 'manipulation';
     ci.addEventListener('click', function (e) {
         e.stopPropagation();
         window.haptic();
         var _v = document.getElementById('v') || v;
+        try { _v.playbackRate = savedSpeed; } catch (ex) { }
+        _suppressBoostUntil = Date.now() + 800;
+        clearTimeout(_speedBoostTimer);
+        _speedBoostTimer = null;
+        isPressing = false;
+        _boostDidActivate = false;
         _v.paused ? _v.play() : _v.pause();
     });
+    ci.addEventListener('touchend', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        window.haptic();
+        var _v = document.getElementById('v') || v;
+        try { _v.playbackRate = savedSpeed; } catch (ex) { }
+        _suppressBoostUntil = Date.now() + 800;
+        clearTimeout(_speedBoostTimer);
+        _speedBoostTimer = null;
+        isPressing = false;
+        _boostDidActivate = false;
+        _v.paused ? _v.play() : _v.pause();
+    }, { passive: false });
 
     var btnPlay = document.getElementById('btn-play');
     if (btnPlay) {
@@ -79,8 +111,27 @@ window.play = function (raw, videoId) {
             e.stopPropagation();
             window.haptic();
             var _v = document.getElementById('v') || v;
+            try { _v.playbackRate = savedSpeed; } catch (ex) { }
+            _suppressBoostUntil = Date.now() + 800;
+            clearTimeout(_speedBoostTimer);
+            _speedBoostTimer = null;
+            isPressing = false;
+            _boostDidActivate = false;
             _v.paused ? _v.play() : _v.pause();
         });
+        btnPlay.addEventListener('touchend', function (e) {
+            try { e.preventDefault(); } catch (ex) { }
+            try { e.stopPropagation(); } catch (ex) { }
+            window.haptic();
+            var _v = document.getElementById('v') || v;
+            try { _v.playbackRate = savedSpeed; } catch (ex) { }
+            _suppressBoostUntil = Date.now() + 800;
+            clearTimeout(_speedBoostTimer);
+            _speedBoostTimer = null;
+            isPressing = false;
+            _boostDidActivate = false;
+            _v.paused ? _v.play() : _v.pause();
+        }, { passive: false });
     }
 
     var skipL = document.getElementById('skip-left');
@@ -124,11 +175,14 @@ window.play = function (raw, videoId) {
         }
     }
     updateVolumeUI();
+    updateVolumeUI();
 
     var hideTimer = null;
     var dragging = false;
     var shown = false;
     var settingsOpen = false;
+    var _suppressShowUntil = 0;
+    var _suppressTogglePlayUntil = 0;
 
     var subFontMap = { sans: 'var(--font)', serif: 'Georgia, serif', mono: 'monospace' };
     var subSizeMap = { small: '14px', medium: '18px', large: '23px', xlarge: '28px', xxlarge: '34px' };
@@ -299,6 +353,7 @@ window.play = function (raw, videoId) {
     var _showedAt = 0;
 
     window.showUI = function showUI(pin) {
+        if (Date.now() < _suppressShowUntil && pin !== true) return;
         var pl = document.getElementById('player');
         if (!pl) return;
         controlsWrapper.classList.add('on');
@@ -326,6 +381,7 @@ window.play = function (raw, videoId) {
     v.addEventListener('play', function () {
         ci.className = 'fa-solid fa-pause';
         centerFlash.classList.remove('paused');
+        try { console.debug('[player] v.play event — playbackRate=', v.playbackRate, 'savedSpeed=', savedSpeed); } catch (ex) { }
     });
 
     v.addEventListener('pause', function () {
@@ -2402,23 +2458,6 @@ window.play = function (raw, videoId) {
             oldV.parentNode.replaceChild(newV, oldV);
             v = newV;
 
-            var clickOverlayEl = document.getElementById('click-overlay');
-            if (clickOverlayEl) clickOverlayEl.remove();
-            var newClickOverlay = document.createElement('div');
-            newClickOverlay.id = 'click-overlay';
-            newClickOverlay.style.cssText = 'position:absolute;inset:0;z-index:1;';
-            v.parentElement.insertBefore(newClickOverlay, v.nextSibling);
-            newClickOverlay.addEventListener('click', function (e) {
-                if (settingsOpen || dragging) return;
-                var isTouch = window.matchMedia('(pointer: coarse)').matches;
-                if (isTouch) {
-                    if (!shown) { showUI(true); } else { hideUI(); }
-                    return;
-                }
-                var _v = document.getElementById('v') || v;
-                if (!shown) { showUI(true); return; }
-                window.haptic(); flashCenter(); _v.paused ? _v.play() : _v.pause();
-            });
             v.addEventListener('play', function () { ci.className = 'fa-solid fa-pause'; centerFlash.classList.remove('paused'); });
             v.addEventListener('pause', function () { ci.className = 'fa-solid fa-play'; centerFlash.classList.add('paused'); });
             v.addEventListener('waiting', showBuffering);
@@ -3168,6 +3207,10 @@ window.play = function (raw, videoId) {
 
     }
 
+    var playerRoot = document.getElementById('player');
+    if (playerRoot && window.getComputedStyle(playerRoot).position === 'static') {
+        playerRoot.style.position = 'relative';
+    }
     v.style.pointerEvents = 'none';
 
     var existingOverlay = document.getElementById('click-overlay');
@@ -3178,25 +3221,52 @@ window.play = function (raw, videoId) {
     clickOverlay.style.cssText = 'position:absolute;inset:0;z-index:1;';
     v.parentElement.insertBefore(clickOverlay, v.nextSibling);
 
-    clickOverlay.addEventListener('click', function (e) {
+    var _clickOverlayTouchHandled = false;
+    function handleClickOverlayTap(ev) {
         if (settingsOpen || dragging) return;
         var isTouch = window.matchMedia('(pointer: coarse)').matches;
+        if (isTouch && shown && ev && (centerFlash && centerFlash.contains(ev.target) || ci && ci.contains(ev.target))) {
+            window.haptic();
+            flashCenter();
+            var _v = document.getElementById('v') || v;
+            try { _v.playbackRate = savedSpeed; } catch (ex) { }
+            _v.paused ? _v.play() : _v.pause();
+            return;
+        }
         if (isTouch) {
             if (!shown) {
                 showUI(true);
+                _suppressTogglePlayUntil = Date.now() + 600;
             } else {
                 hideUI();
+                _suppressShowUntil = Date.now() + 600;
             }
             return;
         }
         if (!shown) {
             showUI(true);
+            _suppressTogglePlayUntil = Date.now() + 600;
             return;
         }
         window.haptic();
         flashCenter();
         var _v = document.getElementById('v') || v;
+        if (Date.now() < _suppressTogglePlayUntil) return;
         _v.paused ? _v.play() : _v.pause();
+    }
+
+    clickOverlay.addEventListener('touchend', function (e) {
+        _clickOverlayTouchHandled = true;
+        handleClickOverlayTap(e);
+    }, { passive: true });
+
+    clickOverlay.addEventListener('click', function (e) {
+        if (_clickOverlayTouchHandled) {
+            _clickOverlayTouchHandled = false;
+            return;
+        }
+        if (settingsOpen || dragging) return;
+        handleClickOverlayTap(e);
     });
 
     document.getElementById('player').addEventListener('click', function (e) {
@@ -3208,7 +3278,7 @@ window.play = function (raw, videoId) {
         if (btnSettings && btnSettings.contains(e.target)) return;
         if (sourceBtnWrap && sourceBtnWrap.contains(e.target)) return;
         if (e.target.closest && e.target.closest('.cf-skip-btn')) return;
-        if (!shown) { showUI(true); return; }
+        if (!shown) { showUI(true); _suppressTogglePlayUntil = Date.now() + 600; return; }
         hideUI();
     });
 
@@ -3220,13 +3290,16 @@ window.play = function (raw, videoId) {
 
     var _speedBoostTimer = null;
     var _speedBoostRaf = null;
+    var _suppressBoostUntil = 0;
 
     function startSpeedBoost() {
+        if (Date.now() < _suppressBoostUntil) return;
         if (isPressing) return;
         isPressing = true;
         _boostDidActivate = true;
         _wasPausedBeforeBoost = v.paused;
         originalPlaybackSpeed = savedSpeed;
+        console.debug('[player] startSpeedBoost: originalPlaybackSpeed=', originalPlaybackSpeed, 'wasPaused=', _wasPausedBeforeBoost);
         if (v.paused) {
             var _boostPlayPromise = v.play();
             if (_boostPlayPromise !== undefined) {
@@ -3256,9 +3329,13 @@ window.play = function (raw, videoId) {
             cancelAnimationFrame(_speedBoostRaf);
             _speedBoostRaf = null;
         }
-        if (!isPressing) return;
+        if (!isPressing) {
+            console.debug('[player] endSpeedBoost called but isPressing=false; forcing reset if needed');
+        }
         isPressing = false;
         v.playbackRate = originalPlaybackSpeed;
+        _boostDidActivate = false;
+        console.debug('[player] endSpeedBoost: restored playbackRate=', v.playbackRate);
         if (_wasPausedBeforeBoost) {
             var pausePromise = v.play();
             if (pausePromise !== undefined) {
@@ -3300,13 +3377,22 @@ window.play = function (raw, videoId) {
         if (btnSettings.contains(e.target)) return;
         if (wrap.contains(e.target)) return;
         _boostDidActivate = false;
-        if (speedBoostEnabled) _speedBoostTimer = setTimeout(function () {
+        if (Date.now() >= _suppressBoostUntil && speedBoostEnabled) _speedBoostTimer = setTimeout(function () {
             if (!dragging) startSpeedBoost();
         }, 600);
     }, { passive: true });
 
     playerEl.addEventListener('touchend', function (e) {
         endSpeedBoost();
+    });
+
+    v.addEventListener('play', function () {
+        try {
+            if (Math.abs(v.playbackRate - savedSpeed) > 0.01 && !isPressing && !_boostDidActivate) {
+                console.debug('[player] play handler restoring playbackRate from', v.playbackRate, 'to', savedSpeed);
+                v.playbackRate = savedSpeed;
+            }
+        } catch (ex) { }
     });
 
     (function () {
