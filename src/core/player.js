@@ -381,7 +381,6 @@ window.play = function (raw, videoId) {
     v.addEventListener('play', function () {
         ci.className = 'fa-solid fa-pause';
         centerFlash.classList.remove('paused');
-        try { console.debug('[player] v.play event — playbackRate=', v.playbackRate, 'savedSpeed=', savedSpeed); } catch (ex) { }
     });
 
     v.addEventListener('pause', function () {
@@ -3299,7 +3298,6 @@ window.play = function (raw, videoId) {
         _boostDidActivate = true;
         _wasPausedBeforeBoost = v.paused;
         originalPlaybackSpeed = savedSpeed;
-        console.debug('[player] startSpeedBoost: originalPlaybackSpeed=', originalPlaybackSpeed, 'wasPaused=', _wasPausedBeforeBoost);
         if (v.paused) {
             var _boostPlayPromise = v.play();
             if (_boostPlayPromise !== undefined) {
@@ -3329,13 +3327,9 @@ window.play = function (raw, videoId) {
             cancelAnimationFrame(_speedBoostRaf);
             _speedBoostRaf = null;
         }
-        if (!isPressing) {
-            console.debug('[player] endSpeedBoost called but isPressing=false; forcing reset if needed');
-        }
         isPressing = false;
         v.playbackRate = originalPlaybackSpeed;
         _boostDidActivate = false;
-        console.debug('[player] endSpeedBoost: restored playbackRate=', v.playbackRate);
         if (_wasPausedBeforeBoost) {
             var pausePromise = v.play();
             if (pausePromise !== undefined) {
@@ -3389,7 +3383,6 @@ window.play = function (raw, videoId) {
     v.addEventListener('play', function () {
         try {
             if (Math.abs(v.playbackRate - savedSpeed) > 0.01 && !isPressing && !_boostDidActivate) {
-                console.debug('[player] play handler restoring playbackRate from', v.playbackRate, 'to', savedSpeed);
                 v.playbackRate = savedSpeed;
             }
         } catch (ex) { }
