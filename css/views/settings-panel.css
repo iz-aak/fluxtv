@@ -17,7 +17,7 @@
 
 #settings-modal-wrap {
     position: fixed;
-    bottom: 0;
+    bottom: 20px;
     left: 0;
     right: 0;
     z-index: 9999;
@@ -33,7 +33,6 @@
 #settings-modal-wrap.open {
     pointer-events: auto;
     opacity: 1;
-    bottom: 0;
 }
 
 #settings-panel {
@@ -68,6 +67,8 @@
     max-width: 93vw;
     background: rgba(0, 0, 0, 0.6);
     border: 1px solid var(--white-08);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     border-radius: var(--close-btn-radius);
     color: var(--white-85);
     font-family: var(--font);
