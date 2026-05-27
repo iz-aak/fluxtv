@@ -48,39 +48,83 @@ async function init() {
     }
 }
 
-function fetchAllSources() {
-    const endpoint = store.s
-        ? `${baseURL}/api/tv?id=${store.id}&season=${store.s}&episode=${store.e || '1'}`
-        : `${baseURL}/api/movie?id=${store.id}`;
+async function fetchAllSources() {
+    const isTv = !!store.s;
+
+    const params = new URLSearchParams({
+        source: ""
+    });
+
+    if (isTv) {
+        params.set("season", store.s);
+        params.set("episode", store.e || "1");
+    }
+
+    const metaRes = await fetch(`${baseURL}/api?sources_meta`);
+    if (!metaRes.ok) throw new Error("failed to fetch source metadata");
+
+    const meta = await metaRes.json();
+    const sources = meta.sources || [];
 
     return new Promise((resolve, reject) => {
         const sourcesData = [];
         let firstResolved = false;
-        const es = new EventSource(endpoint);
+        let completed = 0;
 
-        es.onmessage = (event) => {
-            const msg = JSON.parse(event.data);
-            if (msg.type === "source") {
-                const s = msg.source;
-                const entry = { label: s.label, source: s.source, url: s.url };
-                sourcesData.push(entry);
+        for (const src of sources) {
+            const controller = new AbortController();
 
-                if (!firstResolved) {
-                    firstResolved = true;
-                    resolve({ first: entry, aggregated: sourcesData });
-                } else {
-                    if (typeof store.buildSourceList === "function") store.buildSourceList();
-                }
-            }
-            if (msg.type === "done") {
-                es.close();
-                if (!firstResolved) reject(new Error("no working sources"));
-            }
-        };
-        es.onerror = () => {
-            es.close();
-            if (!firstResolved) reject(new Error("stream failed"));
-        };
+            const timeout = setTimeout(() => {
+                controller.abort();
+            }, src.timeout || 20000);
+
+            params.set("source", src.key);
+
+            const testURL = `${baseURL}/api/test/${store.id}?${params.toString()}`;
+
+            fetch(testURL, {
+                signal: controller.signal
+            })
+                .then(async (res) => {
+                    clearTimeout(timeout);
+
+                    if (!res.ok) return;
+
+                    const data = await res.json();
+
+                    if (!data.ok || !data.url) return;
+
+                    const entry = {
+                        label: src.label,
+                        source: src.key,
+                        url: data.url,
+                        elapsed_ms: data.elapsed_ms
+                    };
+
+                    sourcesData.push(entry);
+
+                    if (!firstResolved) {
+                        firstResolved = true;
+
+                        resolve({
+                            first: entry,
+                            aggregated: sourcesData
+                        });
+                    } else {
+                        if (typeof store.buildSourceList === "function") {
+                            store.buildSourceList();
+                        }
+                    }
+                })
+                .catch(() => { })
+                .finally(() => {
+                    completed++;
+
+                    if (completed >= sources.length && !firstResolved) {
+                        reject(new Error("no working sources"));
+                    }
+                });
+        }
     });
 }
 
