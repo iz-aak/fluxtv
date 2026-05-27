@@ -27,8 +27,8 @@
     --menu-bg: rgba(6, 6, 6, 0.6);
     --menu-bg-strong: rgba(0, 0, 0, 0.7);
     --menu-bg-stronger: rgba(0, 0, 0, 0.8);
-    --menu-blur: blur(10px) saturate(3);
-    --menu-blur-strong: blur(20px) saturate(3);
+    --menu-blur: blur(10px);
+    --menu-blur-strong: blur(20px);
     --menu-radius: 12px;
 
     --ctrl-size: 45px;
