@@ -1,15 +1,26 @@
 {
-    "name": "vyla",
-    "version": "1.0.0",
-    "main": "server.js",
-    "dependencies": {
-        "@vercel/analytics": "^2.0.1",
-        "dotenv": "^17.3.1",
-        "express": "^4.18.2",
-        "libsodium-wrappers": "^0.7.13"
-    },
-    "scripts": {
-        "start": "node server.js",
-        "build": "echo \"no build step\""
-    }
+  "name": "player",
+  "version": "1.0.0",
+  "description": "A clean, modern video player that works right in your browser. Watch movies and TV shows with a beautiful interface that adapts to any device.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vyla-entertainment/player.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/vyla-entertainment/player/issues"
+  },
+  "homepage": "https://github.com/vyla-entertainment/player#readme",
+  "devDependencies": {
+    "vite": "^8.0.14"
+  }
 }

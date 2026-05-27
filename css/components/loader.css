@@ -1,0 +1,95 @@
+#loader {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: all;
+}
+
+#loader::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(circle at center, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.9) 100%);
+    z-index: 1000;
+}
+
+#loader.out {
+    animation: loaderOut 1s var(--ease-out) forwards;
+    pointer-events: none;
+}
+
+#loader-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-color: #000;
+    transition: background-image 0.3s ease;
+}
+
+#loader-msg {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-md);
+    z-index: 10;
+    padding: 0 var(--space-2xl);
+    text-align: center;
+}
+
+#loader-spinner-wrap {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -60%);
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    pointer-events: none;
+}
+
+#loader-spinner-wrap svg {
+    animation: spinnerRotate 0.9s linear infinite;
+}
+
+#loader-spinner-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.65);
+    letter-spacing: 0.02em;
+    text-align: center;
+    max-width: 240px;
+    line-height: 1.55;
+}
+
+.loader-msg-title {
+    color: var(--white-85);
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.loader-msg-url {
+    color: var(--white-45);
+    font-size: 13px;
+}
+
+.loader-source-status {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--white-22);
+    letter-spacing: 0.01em;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.loader-source-item.lsi-active .loader-source-status {
+    color: var(--white-45);
+}

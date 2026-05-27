@@ -1,470 +1,4 @@
-var TMDB_KEY = '338a47b75eab45d9e64e67088f910f93';
-var baseURL = "https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space";
-
-var alive = true;
-var shouldHideLoader = false;
-
-function initLoaderBackdrop() {
-    var loaderBg = document.getElementById('loader-bg');
-    if (!loaderBg) return;
-
-    var p = new URLSearchParams(location.search);
-    var id = p.get('id');
-    if (!id) return;
-
-    var isTv = !!p.get('season');
-    var tmdbUrl = isTv ? 'https://api.themoviedb.org/3/tv/' + id + '?api_key=' + TMDB_KEY : 'https://api.themoviedb.org/3/movie/' + id + '?api_key=' + TMDB_KEY;
-
-    fetch(tmdbUrl)
-        .then(function (response) {
-            if (!response.ok) throw new Error('TMDB fetch failed');
-            return response.json();
-        })
-        .then(function (data) {
-            if (data.success === false) {
-                return;
-            }
-
-            var backdropPath = data.backdrop_path;
-            if (backdropPath) {
-                var backdropUrl = 'https://image.tmdb.org/t/p/original' + backdropPath;
-                loaderBg.style.backgroundImage = 'url(' + backdropUrl + ')';
-            } else {
-                var posterPath = data.poster_path;
-                if (posterPath) {
-                    var posterUrl = 'https://image.tmdb.org/t/p/w1280' + posterPath;
-                    loaderBg.style.backgroundImage = 'url(' + posterUrl + ')';
-                }
-            }
-        })
-}
-
-function setTitleWithTmdbImage(titleText, meta) {
-    var titleElement = document.getElementById('title-text');
-    var logos = meta && meta.images && meta.images.logos;
-    var logo = null;
-    if (logos && logos.length > 0) {
-        logo = logos.find(function (l) { return l.iso_639_1 === 'en'; });
-        if (!logo) logo = logos.find(function (l) { return !l.iso_639_1 || l.iso_639_1 === 'xx'; });
-        if (!logo) logo = logos[0];
-    }
-    if (!logo && meta && meta.logo_object && meta.logo_object.file_path) {
-        logo = meta.logo_object;
-    }
-    if (logo && logo.file_path) {
-        var logoUrl = 'https://image.tmdb.org/t/p/w300' + logo.file_path;
-        titleElement.innerHTML = '<img src="' + logoUrl + '" alt="' + titleText + '" style="max-height:24px;max-width:200px;object-fit:contain;">';
-    } else {
-        titleElement.textContent = titleText;
-    }
-}
-
-function isMobile() {
-    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-}
-
-document.addEventListener('DOMContentLoaded', function () {
-    initLoaderBackdrop();
-
-    if (isMobile()) {
-        var mainVideo = document.getElementById('v');
-        if (mainVideo) {
-            mainVideo.removeAttribute('controls');
-        }
-    }
-});
-
-function hideLoader() {
-    var loader = document.getElementById('loader');
-    loader.classList.add('out');
-    setTimeout(function () {
-        alive = false;
-        loader.style.display = 'none';
-    }, 1000);
-}
-
-document.addEventListener('keydown', function (e) {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-        if (document.body.classList.contains('tv-nav-mode')) return;
-        if (e.key === 'ArrowLeft') { v.currentTime = Math.max(0, v.currentTime - 10); showUI(); }
-        if (e.key === 'ArrowRight') { v.currentTime = Math.min(v.duration || 0, v.currentTime + 10); showUI(); }
-        return;
-    }
-    if (e.key === ' ' || e.key === 'k' || e.key === 'K') { e.preventDefault(); haptic(10); v.paused ? v.play() : v.pause(); }
-    if (e.key === 'f' || e.key === 'F') {
-        if (isIOS() && typeof v.webkitEnterFullscreen === 'function') {
-            if (v.webkitDisplayingFullscreen) {
-                v.webkitExitFullscreen();
-            } else {
-                v.webkitEnterFullscreen();
-            }
-            return;
-        }
-        var fsEl = document.fullscreenElement || document.webkitFullscreenElement;
-        var player = document.getElementById('player');
-        if (fsEl) {
-            if (document.exitFullscreen) document.exitFullscreen();
-            else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-        } else {
-            if (player.requestFullscreen) player.requestFullscreen();
-            else if (player.webkitRequestFullscreen) player.webkitRequestFullscreen();
-        }
-    }
-});
-
-var p = new URLSearchParams(location.search);
-var id = p.get('id'), s = p.get('season'), e = p.get('episode'), ap = p.get('ap');
-if (!id && location.pathname === '/') { location.replace('https://vyla.pages.dev'); }
-
-function isIOS() {
-    return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-}
-
-var _initialFetchPromise = null;
-
-var sources = [];
-var currentSourceIndex = 0;
-var sourcesLoaded = false;
-var buildSourceList = null;
-
-function showNowPlayingToast(title) {
-    var toast = document.getElementById('now-playing-toast');
-    toast.innerHTML = '<div class="np-glow"></div><div class="np-inner"><span class="np-label">Now Playing</span><span class="np-title">\u201c' + title + '\u201d</span></div>';
-    toast.className = '';
-    setTimeout(function () {
-        toast.classList.add('enter');
-        setTimeout(function () {
-            toast.classList.add('exit');
-        }, 3800);
-    }, 4500);
-}
-
-
-if (id) {
-    var baseEndpoint = s
-        ? baseURL + '/api/tv?id=' + id + '&season=' + s + '&episode=' + (e || '1')
-        : baseURL + '/api/movie?id=' + id;
-
-    (function () {
-        var loaderEl = document.getElementById('loader');
-        var loaderBgEl = document.getElementById('loader-bg');
-
-        var spinnerEl = document.createElement('div');
-        spinnerEl.id = 'loader-spinner-wrap';
-        spinnerEl.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-60%);z-index:30;display:flex;flex-direction:column;align-items:center;gap:20px;pointer-events:none;';
-        spinnerEl.innerHTML = '<svg width="56" height="56" viewBox="0 0 52 52" style="filter:drop-shadow(0 0 18px rgba(255,255,255,0.18));animation:_vyla_spin 0.9s linear infinite"><style>@keyframes _vyla_spin{to{transform:rotate(360deg)}}</style><circle cx="26" cy="26" r="22" fill="none" stroke="rgba(255,255,255,0.88)" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="100" stroke-dashoffset="70"/></svg>';
-        if (loaderBgEl) loaderBgEl.appendChild(spinnerEl);
-        else if (loaderEl) loaderEl.appendChild(spinnerEl);
-
-        var _origHide = window.hideLoader;
-        window.hideLoader = function () {
-            if (spinnerEl) spinnerEl.style.display = 'none';
-            var carousel = document.getElementById('loader-sources-carousel');
-            if (carousel) carousel.style.display = 'none';
-            var track = document.getElementById('loader-sources-track');
-            if (track) track.innerHTML = '';
-            var errScreen = document.getElementById('error-screen');
-            if (errScreen) errScreen.classList.remove('show');
-            if (_origHide) _origHide();
-        };
-    })();
-
-    function fetchAllSources() {
-        const url = `${baseURL}/movie?id=${id}`;
-
-        return new Promise((resolve, reject) => {
-            const sources = [];
-            let firstResolved = false;
-
-            const es = new EventSource(url);
-
-            es.onmessage = (event) => {
-                const msg = JSON.parse(event.data);
-
-                if (msg.type === "meta") {
-                    return;
-                }
-
-                if (msg.type === "source") {
-                    const s = msg.source;
-
-                    const entry = {
-                        label: s.label,
-                        source: s.source,
-                        url: s.url
-                    };
-
-                    sources.push(entry);
-
-                    if (!firstResolved) {
-                        firstResolved = true;
-                        resolve({ first: entry, aggregated: sources });
-                    } else {
-                        if (typeof buildSourceList === "function") buildSourceList();
-                    }
-                }
-
-                if (msg.type === "done") {
-                    es.close();
-                    if (!firstResolved) {
-                        reject(new Error("no working sources"));
-                    }
-                }
-            };
-
-            es.onerror = () => {
-                es.close();
-                if (!firstResolved) {
-                    reject(new Error("stream failed"));
-                }
-            };
-        });
-    }
-
-    var _allSourcesSettled = false;
-    var _aggregatedSources = [];
-
-    fetchAllSources()
-        .then(function (result) {
-            shouldHideLoader = true;
-            hideLoader();
-
-            sources = result.aggregated.length ? result.aggregated : [result.first];
-            sourcesLoaded = true;
-            currentSourceIndex = 0;
-
-            var isTv = !!s;
-            var tmdbUrl = isTv
-                ? 'https://api.themoviedb.org/3/tv/' + id + '?api_key=' + TMDB_KEY + '&append_to_response=images'
-                : 'https://api.themoviedb.org/3/movie/' + id + '?api_key=' + TMDB_KEY + '&append_to_response=images';
-
-            var metaTitle = 'Unknown';
-
-            function startPlayback() {
-                var src = sources[currentSourceIndex];
-                if (!src) {
-                    var errText = document.querySelector('.err-text');
-                    if (errText) errText.innerHTML = 'Stream Unavailable';
-                    var errSub = document.querySelector('.err-sub');
-                    if (!errSub && errText) errText.insertAdjacentHTML('afterend', '<div class="err-sub">All sources failed.</div>');
-                    document.getElementById('error-screen').classList.add('show');
-                    return;
-                }
-                window._fallbackSources = result.aggregated;
-                play(src.url, true, id);
-                if (typeof buildSourceList === 'function') buildSourceList();
-            }
-
-            setTimeout(function () {
-                sources = result.aggregated.slice();
-            }, 20000);
-
-            fetch(tmdbUrl)
-                .then(function (mr) { return mr.json(); })
-                .then(function (meta) {
-                    metaTitle = (meta.title || meta.name || 'Unknown');
-                    if (s) metaTitle += ' \u00b7 S' + s + 'E' + (e || '1');
-                    document.title = metaTitle;
-                    setTitleWithTmdbImage(metaTitle, meta);
-                    if (s) {
-                        var epBadge = document.getElementById('ep-badge');
-                        if (epBadge) epBadge.textContent = 'S' + s + ' \u00b7 E' + (e || '1');
-                    }
-                    if ('mediaSession' in navigator) {
-                        var img = 'https://image.tmdb.org/t/p/w500' + (meta.poster_path || meta.backdrop_path);
-                        navigator.mediaSession.metadata = new MediaMetadata({
-                            title: metaTitle,
-                            artwork: [{ src: img, sizes: '500x500', type: 'image/jpeg' }]
-                        });
-                    }
-                    showNowPlayingToast(metaTitle);
-                    startPlayback();
-                })
-                .catch(function () {
-                    if (s) metaTitle += ' \u00b7 S' + s + 'E' + (e || '1');
-                    document.title = metaTitle;
-                    document.getElementById('title-text').textContent = metaTitle;
-                    showNowPlayingToast(metaTitle);
-                    startPlayback();
-                });
-        })
-        .catch(function () {
-            var spinnerEl = document.getElementById('loader-spinner-wrap');
-            if (spinnerEl) spinnerEl.style.display = 'none';
-            var carousel = document.getElementById('loader-sources-carousel');
-            if (carousel) carousel.style.display = 'none';
-            var loaderMsg = document.getElementById('loader-msg');
-            if (loaderMsg) loaderMsg.style.display = 'none';
-            var errText = document.querySelector('.err-text');
-            if (errText) errText.innerHTML = 'Stream Unavailable';
-            var errSub = document.querySelector('.err-sub');
-            if (!errSub) {
-                errText && errText.insertAdjacentHTML('afterend', '<div class="err-sub">No working sources were found for this title. It may be unavailable or the ID may be incorrect.</div>');
-            }
-            document.getElementById('error-screen').classList.add('show');
-        });
-}
-
-var _hxInput = (function () {
-    if (!('ontouchstart' in window) && navigator.maxTouchPoints === 0) return null;
-    var s = document.createElement('input');
-    s.type = 'checkbox';
-    s.setAttribute('switch', '');
-    s.setAttribute('inert', '');
-    s.tabIndex = -1;
-    s.style.cssText = 'position:fixed;top:-9999px;opacity:0;pointer-events:none;';
-    document.body.appendChild(s);
-    var l = document.createElement('label');
-    l.htmlFor = s.id = '__hx';
-    l.style.cssText = 'position:fixed;top:-9999px;opacity:0;pointer-events:none;';
-    document.body.appendChild(l);
-    return l;
-})();
-
-function haptic() {
-    if (_hxInput) _hxInput.click();
-}
-
-function fmt(sec) {
-    if (!sec || isNaN(sec) || sec < 0) return '0:00';
-    var h = Math.floor(sec / 3600);
-    var m = Math.floor((sec % 3600) / 60);
-    var s = Math.floor(sec % 60);
-    var ss = s < 10 ? '0' + s : '' + s;
-    if (h > 0) {
-        var mm = m < 10 ? '0' + m : '' + m;
-        return h + ':' + mm + ':' + ss;
-    }
-    return m + ':' + ss;
-}
-
-function parseSrt(text) {
-    var cues = [];
-    var blocks = text.trim().split(/\n\s*\n/);
-    blocks.forEach(function (block) {
-        var lines = block.trim().split('\n');
-        var timeIdx = -1;
-        for (var i = 0; i < lines.length; i++) {
-            if (lines[i].includes('-->')) { timeIdx = i; break; }
-        }
-        if (timeIdx < 0) return;
-        var times = lines[timeIdx].split('-->');
-        function toSec(t) {
-            var parts = t.trim().replace(',', '.').split(':');
-            return parseFloat(parts[0]) * 3600 + parseFloat(parts[1]) * 60 + parseFloat(parts[2]);
-        }
-        var txt = lines.slice(timeIdx + 1).join('\n').replace(/<[^>]+>/g, '').trim();
-        if (txt) cues.push({ start: toSec(times[0]), end: toSec(times[1]), text: txt });
-    });
-    return cues;
-}
-
-function parseVtt(text) {
-    var cues = [];
-    var blocks = text.trim().split(/\n\s*\n/);
-    blocks.forEach(function (block) {
-        var lines = block.trim().split('\n');
-        var timeIdx = -1;
-        for (var i = 0; i < lines.length; i++) {
-            if (lines[i].includes('-->')) { timeIdx = i; break; }
-        }
-        if (timeIdx < 0) return;
-        var times = lines[timeIdx].split('-->');
-        function toSec(t) {
-            var clean = t.trim().split(' ')[0];
-            var parts = clean.split(':');
-            if (parts.length === 2) return parseFloat(parts[0]) * 60 + parseFloat(parts[1]);
-            return parseFloat(parts[0]) * 3600 + parseFloat(parts[1]) * 60 + parseFloat(parts[2]);
-        }
-        var txt = lines.slice(timeIdx + 1).join('\n').replace(/<[^>]+>/g, '').replace(/\{[^}]+\}/g, '').trim();
-        if (txt) cues.push({ start: toSec(times[0]), end: toSec(times[1]), text: txt });
-    });
-    return cues;
-}
-
-function detectFormat(url, hint) {
-    if (hint && (hint === 'srt' || hint === 'vtt')) return hint;
-    if (url && url.toLowerCase().includes('.srt')) return 'srt';
-    return 'vtt';
-}
-
-function testSubtitle(sub) {
-    return fetch(sub.url, sub.headers ? { headers: sub.headers } : undefined)
-        .then(function (r) {
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            return r.text();
-        })
-        .then(function (text) {
-            var trimmed = text.trim();
-            if (trimmed.length < 10) throw new Error('empty');
-            if (trimmed.startsWith('#EXTM3U')) throw new Error('HLS playlist');
-            if (trimmed.startsWith('{') || trimmed.startsWith('[')) throw new Error('JSON response');
-            var fmt = detectFormat(sub.url, sub.format);
-            var cues = fmt === 'srt' ? parseSrt(trimmed) : parseVtt(trimmed);
-            if (!cues || cues.length === 0) {
-                fmt = fmt === 'srt' ? 'vtt' : 'srt';
-                cues = fmt === 'srt' ? parseSrt(trimmed) : parseVtt(trimmed);
-            }
-            if (!cues || cues.length === 0) throw new Error('no cues parsed');
-            return { sub: sub, cues: cues, format: fmt };
-        });
-}
-
-function fetchSubDirect(sub) {
-    return testSubtitle(sub);
-}
-
-function fetchSubViaProxy(sub) {
-    var proxyUrl = baseURL + '/api/proxy?url=' + encodeURIComponent(sub.url);
-    return testSubtitle(Object.assign({}, sub, {
-        url: proxyUrl,
-        headers: { 'Referer': new URL(sub.url).origin + '/', 'Origin': new URL(sub.url).origin }
-    }));
-}
-
-function fetchSubWithFallback(sub) {
-    return fetchSubViaProxy(sub).catch(function () {
-        return fetchSubDirect(sub);
-    });
-}
-
-var langMap = {};
-var getLangCode, flagImg;
-
-fetch('https://restcountries.com/v3.1/all?fields=cca2,languages')
-    .then(function (res) {
-        return res.json();
-    })
-    .then(function (data) {
-        if (!Array.isArray(data)) {
-            return;
-        }
-        for (const country of data) {
-            const cCode = country.cca2?.toLowerCase();
-            const languages = country.languages || {};
-
-            for (const [_, langName] of Object.entries(languages)) {
-                const key = langName.toLowerCase();
-                if (!langMap[key]) langMap[key] = new Set();
-                langMap[key].add(cCode);
-            }
-        }
-
-        getLangCode = function (label) {
-            if (!label) return null;
-            var key = label.toLowerCase().replace(/[^a-z]/g, ' ').trim().split(' ')[0];
-            return langMap[key] ? Array.from(langMap[key])[0] : null;
-        };
-
-        flagImg = function (code) {
-            if (!code) return '<span style="width:26px;height:20px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa-solid fa-globe" style="font-size:13px;color:rgba(255,255,255,0.3);"></i></span>';
-            return '<img class="slg-flag" src="https://flagcdn.com/20x15/' + code + '.png" width="26" height="20" alt="">';
-        };
-
-    });
-
-function play(raw, videoId) {
+window.play = function (raw, videoId) {
     (function () {
         if (document.getElementById('_vyla_styles')) return;
         var st = document.createElement('style');
@@ -517,13 +51,13 @@ function play(raw, videoId) {
     cfSkipLeft.addEventListener('click', function (e) {
         e.stopPropagation();
         v.currentTime = Math.max(0, v.currentTime - 10);
-        haptic();
+        window.haptic();
     });
 
     cfSkipRight.addEventListener('click', function (e) {
         e.stopPropagation();
         v.currentTime = Math.min(v.duration || 0, v.currentTime + 10);
-        haptic();
+        window.haptic();
     });
 
     ci.style.position = 'relative';
@@ -531,7 +65,7 @@ function play(raw, videoId) {
     ci.style.pointerEvents = 'auto';
     ci.addEventListener('click', function (e) {
         e.stopPropagation();
-        haptic();
+        window.haptic();
         var _v = document.getElementById('v') || v;
         _v.paused ? _v.play() : _v.pause();
     });
@@ -543,7 +77,7 @@ function play(raw, videoId) {
         btnPlay.style.pointerEvents = 'auto';
         btnPlay.addEventListener('click', function (e) {
             e.stopPropagation();
-            haptic();
+            window.haptic();
             var _v = document.getElementById('v') || v;
             _v.paused ? _v.play() : _v.pause();
         });
@@ -815,10 +349,10 @@ function play(raw, videoId) {
             var pct = v.currentTime / v.duration * 100;
             prog.style.width = pct + '%';
             thumb.style.left = 'calc(' + pct + '% - ' + (pct / 100 * 0) + 'px)';
-            tCur.textContent = fmt(v.currentTime);
-            tDur.textContent = fmt(v.duration);
-            if (tdCur) tdCur.textContent = fmt(v.currentTime);
-            if (tdDur) tdDur.textContent = fmt(v.duration);
+            tCur.textContent = window.fmt(v.currentTime);
+            tDur.textContent = window.fmt(v.duration);
+            if (tdCur) tdCur.textContent = window.fmt(v.currentTime);
+            if (tdDur) tdDur.textContent = window.fmt(v.duration);
             if (v.buffered.length) {
                 var bufEnd = 0;
                 for (var bi = 0; bi < v.buffered.length; bi++) {
@@ -839,7 +373,7 @@ function play(raw, videoId) {
         var pct = _seekPct;
         prog.style.width = (pct * 100) + '%';
         thumb.style.left = (pct * 100) + '%';
-        tCur.textContent = fmt(pct * (v.duration || 0));
+        tCur.textContent = window.fmt(pct * (v.duration || 0));
         if (!dragging) {
             v.currentTime = pct * (v.duration || 0);
         }
@@ -867,7 +401,7 @@ function play(raw, videoId) {
         var thumbHalf = 8;
         var tipLeft = Math.max(thumbHalf, Math.min(r.width - thumbHalf, pct * r.width));
         tooltip.style.left = tipLeft + 'px';
-        tooltipTime.textContent = fmt(t);
+        tooltipTime.textContent = window.fmt(t);
         tooltip.classList.add('show');
         lastTooltipPct = pct;
     }
@@ -906,7 +440,7 @@ function play(raw, videoId) {
         el.classList.remove('hide');
         void el.offsetWidth;
         el.classList.add('show');
-        haptic();
+        window.haptic();
     }
 
     function startCueLoop() {
@@ -950,7 +484,7 @@ function play(raw, videoId) {
         };
         v.addEventListener('ratechange', onRateGuard);
         setTimeout(function () { v.removeEventListener('ratechange', onRateGuard); }, 3000);
-        tDur.textContent = fmt(v.duration);
+        tDur.textContent = window.fmt(v.duration);
         var loaderBottomGlow = document.querySelector('.loader-bottom-glow');
         if (loaderBottomGlow) loaderBottomGlow.classList.add('video-playing');
         setTimeout(function () { showUI(true); }, 180);
@@ -1031,7 +565,7 @@ function play(raw, videoId) {
             hint.removeEventListener('click', onHintClick);
             document.removeEventListener('touchend', onDocTouch, true);
             document.removeEventListener('click', onDocClick, true);
-            haptic();
+            window.haptic();
         }
 
         function onHintTouch(ev) {
@@ -1135,7 +669,7 @@ function play(raw, videoId) {
             pollCount++;
             if (!isNaN(v.duration) && v.duration > 0) {
                 clearInterval(durationPollTimer);
-                tDur.textContent = fmt(v.duration);
+                tDur.textContent = window.fmt(v.duration);
                 restoreTimestamp();
                 return;
             }
@@ -1219,7 +753,7 @@ function play(raw, videoId) {
                     isAutoQuality = false;
                     updateQualityLabel();
                     updateQualityRowUI();
-                    haptic(6);
+                    window.haptic(6);
                 });
             }
             qualityOptsEl.appendChild(row);
@@ -1248,7 +782,7 @@ function play(raw, videoId) {
             if (isAutoQuality) hls.currentLevel = -1;
             updateQualityLabel();
             updateQualityRowUI();
-            haptic(6);
+            window.haptic(6);
         });
 
         var srcLink = document.getElementById('quality-hint-source-link');
@@ -1318,7 +852,7 @@ function play(raw, videoId) {
         }
     }
 
-    if (isTedub && Hls.isSupported() && !isIOS()) {
+    if (isTedub && Hls.isSupported() && !window.isIOS()) {
         var hls = new Hls({
             startLevel: -1,
             maxBufferLength: 30,
@@ -1356,12 +890,12 @@ function play(raw, videoId) {
         });
         v.addEventListener('canplay', function () {
             if (isNaN(v.duration) || v.duration === 0) return;
-            tDur.textContent = fmt(v.duration);
+            tDur.textContent = window.fmt(v.duration);
             restoreTimestamp();
         });
     }
 
-    else if (isTedub && isIOS() && v.canPlayType('application/vnd.apple.mpegurl')) {
+    else if (isTedub && window.isIOS() && v.canPlayType('application/vnd.apple.mpegurl')) {
         showBufferingImmediate();
         v.src = src;
         v.addEventListener('loadedmetadata', function () {
@@ -1371,7 +905,7 @@ function play(raw, videoId) {
         });
         v.addEventListener('canplay', function () {
             if (isNaN(v.duration) || v.duration === 0) return;
-            tDur.textContent = fmt(v.duration);
+            tDur.textContent = window.fmt(v.duration);
             restoreTimestamp();
         });
     }
@@ -1404,7 +938,7 @@ function play(raw, videoId) {
             testBandwidth: true,
             xhrSetup: function (xhr, url) {
                 xhr.withCredentials = false;
-                if (url && url.startsWith(baseURL)) {
+                if (url && url.startsWith(window.baseURL)) {
                     url = url.replace('http://', 'https://');
                     xhr.open('GET', url, true);
                 }
@@ -1533,7 +1067,7 @@ function play(raw, videoId) {
             if (isNaN(v.duration) || v.duration === 0) return;
             clearTimeout(retryTimer);
             retryCount = maxRetries;
-            tDur.textContent = fmt(v.duration);
+            tDur.textContent = window.fmt(v.duration);
             restoreTimestamp();
         });
 
@@ -1551,7 +1085,7 @@ function play(raw, videoId) {
         });
         v.addEventListener('canplay', function () {
             if (isNaN(v.duration) || v.duration === 0) return;
-            tDur.textContent = fmt(v.duration);
+            tDur.textContent = window.fmt(v.duration);
             restoreTimestamp();
         });
     }
@@ -1564,10 +1098,10 @@ function play(raw, videoId) {
         });
     }
 
-    var PROXY = baseURL + '/api/proxy?url=';
+    var PROXY = window.baseURL + '/api/proxy?url=';
     var vylaEndpoint = s
-        ? (baseURL + '/subtitles/tv/' + id + '/' + s + '/' + (e || '1'))
-        : (baseURL + '/subtitles/movie/' + id);
+        ? (window.baseURL + '/subtitles/tv/' + id + '/' + s + '/' + (e || '1'))
+        : (window.baseURL + '/subtitles/movie/' + id);
 
     document.getElementById('lbl-subtitle').textContent = 'Loading\u2026';
 
@@ -1748,7 +1282,7 @@ function play(raw, videoId) {
                         '<span class="slg-count">' + g.subs.length + '</span>' +
                         '<i class="fa-solid fa-chevron-right slg-chevron"></i>';
                     row.addEventListener('click', function () {
-                        haptic(6);
+                        window.haptic(6);
                         showSubEntries(g.label, g.subs, code);
                     });
                     inlineEl.appendChild(row);
@@ -1766,7 +1300,7 @@ function play(raw, videoId) {
                 document.getElementById('sub-off-check').style.display = 'flex';
                 var mainToggle = document.getElementById('subtitle-toggle');
                 if (mainToggle) mainToggle.classList.remove('on');
-                haptic(6);
+                window.haptic(6);
             });
         })
         .catch(function () {
@@ -1808,10 +1342,10 @@ function play(raw, videoId) {
                 if (newBack) {
                     newBack.addEventListener('click', function () {
                         showSettingsView('main');
-                        haptic(6);
+                        window.haptic(6);
                     });
                 }
-                haptic(6);
+                window.haptic(6);
             });
         }
 
@@ -1831,8 +1365,8 @@ function play(raw, videoId) {
                 '<div class="se-info">' +
                 '<span class="se-url">' + shortUrl + '</span>' +
                 '<div class="se-badges">' +
-                '<span class="fmt-badge">' + fmtLabel + '</span>' +
-                (srcName ? '<span class="fmt-badge se-src-badge">' + srcName.toUpperCase() + '</span>' : '') +
+                '<span class="window.fmt-badge">' + fmtLabel + '</span>' +
+                (srcName ? '<span class="window.fmt-badge se-src-badge">' + srcName.toUpperCase() + '</span>' : '') +
                 '</div></div>' +
                 '<i class="fa-solid fa-language se-lang-icon"></i>';
 
@@ -1860,7 +1394,7 @@ function play(raw, videoId) {
                         if (offCheck) offCheck.style.display = 'none';
                         var mainToggle = document.getElementById('subtitle-toggle');
                         if (mainToggle) mainToggle.classList.add('on');
-                        haptic(6);
+                        window.haptic(6);
                         closeSettings();
                     })
                     .catch(function () {
@@ -1880,7 +1414,7 @@ function play(raw, videoId) {
         document.getElementById('settings-modal-wrap').classList.add('open');
         document.getElementById('settings-overlay-backdrop').classList.add('open');
         showUI(true);
-        haptic(10);
+        window.haptic(10);
     }
 
     function closeSettings() {
@@ -1927,13 +1461,13 @@ function play(raw, videoId) {
     document.getElementById('main-watchparty-btn').addEventListener('click', function (e) {
         e.stopPropagation();
         showSettingsView('watchparty');
-        haptic(6);
+        window.haptic(6);
     });
 
     document.getElementById('main-segment-btn').addEventListener('click', function (e) {
         e.stopPropagation();
         showSettingsView('segments');
-        haptic(6);
+        window.haptic(6);
         initSegmentsView();
     });
 
@@ -2090,7 +1624,7 @@ function play(raw, videoId) {
             var seg = this._activeSeg;
             if (seg) {
                 v.currentTime = seg.end;
-                haptic(6);
+                window.haptic(6);
             }
         });
 
@@ -2472,29 +2006,29 @@ function play(raw, videoId) {
                 '<div style="font-size:11px;color:rgba(255,255,255,0.55);">\u25b8 ' + (wpState.members <= 1 ? 'Alone' : wpState.members + ' watching') + '</div>';
         }
 
-        wpHostBtn.addEventListener('click', function () { startHosting(); haptic(6); });
+        wpHostBtn.addEventListener('click', function () { startHosting(); window.haptic(6); });
 
         wpJoinBtn.addEventListener('click', function () {
             showWpView('join');
             wpCodeInput.value = '';
             setTimeout(function () { wpCodeInput.focus(); }, 120);
-            haptic(6);
+            window.haptic(6);
         });
 
-        wpJoinCancelBtn.addEventListener('click', function () { showWpView('main'); haptic(6); });
+        wpJoinCancelBtn.addEventListener('click', function () { showWpView('main'); window.haptic(6); });
 
         wpJoinConfirmBtn.addEventListener('click', function () {
             var code = wpCodeInput.value.trim();
             if (!code) return;
             joinParty(code);
-            haptic(6);
+            window.haptic(6);
         });
 
         wpCodeInput.addEventListener('keydown', function (e) {
             if (e.key === 'Enter') { wpJoinConfirmBtn.click(); }
         });
 
-        wpLeaveBtn.addEventListener('click', function () { leaveParty(); haptic(6); });
+        wpLeaveBtn.addEventListener('click', function () { leaveParty(); window.haptic(6); });
 
         if (wpReconnectBtn) {
             wpReconnectBtn.addEventListener('click', function () {
@@ -2510,7 +2044,7 @@ function play(raw, videoId) {
                     wpCodeInput.value = wpState.lastRoomCode;
                     wpJoinConfirmBtn.click();
                 }
-                haptic(6);
+                window.haptic(6);
             });
         }
 
@@ -2522,7 +2056,7 @@ function play(raw, videoId) {
                     if (icon) { icon.className = 'fa-solid fa-check'; setTimeout(function () { icon.className = 'fa-solid fa-copy'; }, 1500); }
                 }).catch(function () { });
             }
-            haptic(6);
+            window.haptic(6);
         });
 
         var btnSubShortcut = document.getElementById('btn-subtitles-shortcut');
@@ -2538,7 +2072,7 @@ function play(raw, videoId) {
             wpState.overlayOn = !wpState.overlayOn;
             this.classList.toggle('on', wpState.overlayOn);
             updateWatchPartyOverlay();
-            haptic(6);
+            window.haptic(6);
         });
 
         document.addEventListener('keydown', function (e) {
@@ -2565,25 +2099,25 @@ function play(raw, videoId) {
     document.querySelector('.settings-tile[data-nav="sources"]').addEventListener('click', function (e) {
         e.stopPropagation();
         showSettingsView('sources');
-        haptic(6);
+        window.haptic(6);
     });
 
     document.querySelector('.settings-tile[data-nav="quality"]').addEventListener('click', function (e) {
         e.stopPropagation();
         showSettingsView('quality');
-        haptic(6);
+        window.haptic(6);
     });
 
     document.querySelector('.settings-tile[data-nav="subtitles"]').addEventListener('click', function (e) {
         e.stopPropagation();
         showSettingsView('subtitles');
-        haptic(6);
+        window.haptic(6);
     });
 
     document.querySelector('.settings-tile[data-nav="video"]').addEventListener('click', function (e) {
         e.stopPropagation();
         showSettingsView('video');
-        haptic(6);
+        window.haptic(6);
     });
 
     document.querySelectorAll('.settings-back-btn').forEach(function (btn) {
@@ -2591,7 +2125,7 @@ function play(raw, videoId) {
         btn.addEventListener('click', function (e) {
             e.stopPropagation();
             showSettingsView('main');
-            haptic(6);
+            window.haptic(6);
         });
     });
 
@@ -2626,7 +2160,7 @@ function play(raw, videoId) {
                     subtitleToggleEl.classList.remove('on');
                 }
             }
-            haptic(6);
+            window.haptic(6);
         });
 
         var speedBoostToggleEl = document.getElementById('speed-boost-toggle');
@@ -2637,7 +2171,7 @@ function play(raw, videoId) {
                 speedBoostEnabled = !speedBoostEnabled;
                 speedBoostToggleEl.classList.toggle('on', speedBoostEnabled);
                 try { localStorage.setItem('speedBoostEnabled', speedBoostEnabled ? 'true' : 'false'); } catch (ex) { }
-                haptic(6);
+                window.haptic(6);
             });
         }
     }
@@ -2649,7 +2183,7 @@ function play(raw, videoId) {
             event.stopPropagation();
 
             showSettingsView('download');
-            haptic(6);
+            window.haptic(6);
 
             var list = document.getElementById('download-list');
 
@@ -2663,10 +2197,14 @@ function play(raw, videoId) {
                 '<div class="source-skel-item"></div>' +
                 '</div>';
 
-            var episode = e || 1;
-            var endpoint = s
-                ? `${baseURL}/downloads/tv/${id}/${s}/${episode}`
-                : `${baseURL}/downloads/movie/${id}`;
+            var episode = window.e || 1;
+            var _id = (window.id || '').toString().trim();
+            var _s = (window.s || '').toString().trim();
+            var _base = (window.baseURL || '').toString().trim();
+
+            var endpoint = window.s
+                ? _base + '/downloads/tv/' + _id + '/' + _s + '/' + episode
+                : _base + '/downloads/movie/' + _id;
 
             function fetchWithRetry(attempts = 0) {
                 var maxRetries = 2;
@@ -2737,7 +2275,7 @@ function play(raw, videoId) {
         mainPlaybackBtn.addEventListener('click', function (e) {
             e.stopPropagation();
             showSettingsView('speed');
-            haptic(6);
+            window.haptic(6);
         });
     }
 
@@ -2746,7 +2284,7 @@ function play(raw, videoId) {
         mainVideoBtn.addEventListener('click', function (e) {
             e.stopPropagation();
             showSettingsView('video');
-            haptic(6);
+            window.haptic(6);
         });
     }
 
@@ -2769,7 +2307,7 @@ function play(raw, videoId) {
             videoState.ratio = this.dataset.ratio;
             applyVideoStyles();
             updateListActive('ratio-opts', this, 'lbl-ratio', this.textContent.trim());
-            haptic(6);
+            window.haptic(6);
         });
     });
 
@@ -2789,7 +2327,7 @@ function play(raw, videoId) {
             el = document.getElementById('vid-saturate'); if (el) el.value = 100;
             var fitBtn = document.querySelector('.settings-list-item[data-ratio="contain"]');
             if (fitBtn) updateListActive('ratio-opts', fitBtn, 'lbl-ratio', 'Fit');
-            haptic(6);
+            window.haptic(6);
         });
     }
 
@@ -2808,19 +2346,19 @@ function play(raw, videoId) {
             savedSpeed = rate;
             try { localStorage.setItem('playbackSpeed', rate); } catch (err) { }
             updateListActive('speed-opts', this, 'lbl-speed', this.textContent.trim());
-            haptic(6);
+            window.haptic(6);
             showUI(true);
         });
     });
 
     function toProxiedHls(url) {
         if (!url) return url;
-        if (url.startsWith(baseURL)) return url;
+        if (url.startsWith(window.baseURL)) return url;
         try {
             var parsed = new URL(url);
             if (parsed.searchParams.has('url') || parsed.searchParams.has('m3u8')) return url;
         } catch (ex) { }
-        return baseURL + '/api?url=' + encodeURIComponent(url) + '&vn=1';
+        return window.baseURL + '/api?url=' + encodeURIComponent(url) + '&vn=1';
     }
 
     function switchSource(url, forceMp4) {
@@ -2879,7 +2417,7 @@ function play(raw, videoId) {
                 }
                 var _v = document.getElementById('v') || v;
                 if (!shown) { showUI(true); return; }
-                haptic(); flashCenter(); _v.paused ? _v.play() : _v.pause();
+                window.haptic(); flashCenter(); _v.paused ? _v.play() : _v.pause();
             });
             v.addEventListener('play', function () { ci.className = 'fa-solid fa-pause'; centerFlash.classList.remove('paused'); });
             v.addEventListener('pause', function () { ci.className = 'fa-solid fa-play'; centerFlash.classList.add('paused'); });
@@ -3139,7 +2677,7 @@ function play(raw, videoId) {
                 item.addEventListener('mouseenter', function () { this.style.background = 'rgba(255,255,255,0.06)'; });
                 item.addEventListener('mouseleave', function () { this.style.background = ''; });
                 item.addEventListener('click', function () {
-                    haptic(10);
+                    window.haptic(10);
                     showSrcDetail(source, i);
                 });
             }
@@ -3150,7 +2688,7 @@ function play(raw, videoId) {
         if (srcFindNext) {
             srcFindNext.onclick = function () {
                 var next = (currentSourceIndex + 1) % sources.length;
-                if (sources[next]) { haptic(10); showSrcDetail(sources[next], next); }
+                if (sources[next]) { window.haptic(10); showSrcDetail(sources[next], next); }
             };
         }
 
@@ -3241,11 +2779,11 @@ function play(raw, videoId) {
             el.addEventListener('change', function (e) {
                 e.stopPropagation();
                 saveSubSettings();
-                haptic(6);
+                window.haptic(6);
             });
         } else {
             el.addEventListener('change', function () {
-                haptic(6);
+                window.haptic(6);
             });
         }
     }
@@ -3267,7 +2805,7 @@ function play(raw, videoId) {
         } else {
             btnPip.addEventListener('click', function (e) {
                 e.stopPropagation();
-                haptic(10);
+                window.haptic(10);
                 var pipElement = document.pictureInPictureElement || document.webkitPictureInPictureElement;
                 if (pipElement) {
                     if (document.exitPictureInPicture) document.exitPictureInPicture();
@@ -3283,8 +2821,8 @@ function play(raw, videoId) {
     if (btnFullscreen) {
         btnFullscreen.addEventListener('click', function (e) {
             e.stopPropagation();
-            haptic(10);
-            if (isIOS() && typeof v.webkitEnterFullscreen === 'function') {
+            window.haptic(10);
+            if (window.isIOS() && typeof v.webkitEnterFullscreen === 'function') {
                 if (v.webkitDisplayingFullscreen) {
                     v.webkitExitFullscreen();
                 } else {
@@ -3322,7 +2860,7 @@ function play(raw, videoId) {
         trackEl.classList.add('drag');
         seekX(e.clientX);
         showUI(true);
-        haptic(6);
+        window.haptic(6);
     });
     function showSeekTooltip(clientX) {
         if (!v.duration) return;
@@ -3331,7 +2869,7 @@ function play(raw, videoId) {
         var thumbHalf = 8;
         var tipLeft = Math.max(thumbHalf, Math.min(r.width - thumbHalf, pct * r.width));
         tooltip.style.left = tipLeft + 'px';
-        tooltipTime.textContent = fmt(pct * v.duration);
+        tooltipTime.textContent = window.fmt(pct * v.duration);
         tooltip.classList.add('show');
     }
 
@@ -3342,7 +2880,7 @@ function play(raw, videoId) {
         trackEl.classList.add('drag');
         seekX(e.touches[0].clientX);
         showUI(true);
-        haptic();
+        window.haptic();
         showSeekTooltip(e.touches[0].clientX);
     }, { passive: true });
 
@@ -3398,9 +2936,9 @@ function play(raw, videoId) {
             if (e.key === 'ArrowRight') { doSkip('right', 1); showUI(); }
             return;
         }
-        if (e.key === ' ' || e.key === 'k' || e.key === 'K') { e.preventDefault(); haptic(10); v.paused ? v.play() : v.pause(); }
+        if (e.key === ' ' || e.key === 'k' || e.key === 'K') { e.preventDefault(); window.haptic(10); v.paused ? v.play() : v.pause(); }
         if (e.key === 'f' || e.key === 'F') {
-            if (isIOS() && typeof v.webkitEnterFullscreen === 'function') {
+            if (window.isIOS() && typeof v.webkitEnterFullscreen === 'function') {
                 if (v.webkitDisplayingFullscreen) {
                     v.webkitExitFullscreen();
                 } else {
@@ -3555,7 +3093,7 @@ function play(raw, videoId) {
         var nextE = parseInt(e || '1') + 1;
         var nextS = parseInt(s);
 
-        fetch(baseURL + '/api/tv?id=' + id + '&season=' + nextS + '&episode=' + nextE)
+        fetch(window.baseURL + '/api/tv?id=' + id + '&season=' + nextS + '&episode=' + nextE)
             .then(function (r) { return r.json(); })
             .then(function (d) {
                 var t = d.meta ? (d.meta.title || d.meta.name || 'Unknown') : 'Unknown';
@@ -3582,11 +3120,11 @@ function play(raw, videoId) {
 
             nextEpBtn.style.display = 'none';
 
-            fetch(baseURL + '/api/tv?id=' + id + '&season=' + _nextS + '&episode=' + _nextE)
+            fetch(window.baseURL + '/api/tv?id=' + id + '&season=' + _nextS + '&episode=' + _nextE)
                 .then(function (r) { return r.json(); })
                 .then(function (d) {
                     if (d.error || !d.url) {
-                        fetch(baseURL + '/api/tv?id=' + id + '&season=' + (_nextS + 1) + '&episode=1')
+                        fetch(window.baseURL + '/api/tv?id=' + id + '&season=' + (_nextS + 1) + '&episode=1')
                             .then(function (r) { return r.json(); })
                             .then(function (d2) {
                                 if (d2.error || !d2.url) return;
@@ -3655,7 +3193,7 @@ function play(raw, videoId) {
             showUI(true);
             return;
         }
-        haptic();
+        window.haptic();
         flashCenter();
         var _v = document.getElementById('v') || v;
         _v.paused ? _v.play() : _v.pause();
@@ -3902,7 +3440,7 @@ function play(raw, videoId) {
             btn.addEventListener('click', function () {
                 var preset = this.dataset.preset;
                 applySubPreset(preset);
-                haptic(6);
+                window.haptic(6);
             });
         });
 
@@ -3912,7 +3450,7 @@ function play(raw, videoId) {
                 applySubStyles();
                 saveSubSettings();
                 updateSimpleControls();
-                haptic(6);
+                window.haptic(6);
             });
         });
 
@@ -3922,7 +3460,7 @@ function play(raw, videoId) {
                 applySubStyles();
                 saveSubSettings();
                 updateSimpleControls();
-                haptic(6);
+                window.haptic(6);
             });
         });
 
@@ -3940,7 +3478,7 @@ function play(raw, videoId) {
                 saveSubSettings();
                 updateSimpleControls();
                 updateAdvancedControls();
-                haptic(6);
+                window.haptic(6);
             });
         });
 
@@ -3958,7 +3496,7 @@ function play(raw, videoId) {
                         updateAdvancedControls();
                     }
                 }
-                haptic(6);
+                window.haptic(6);
             });
         }
 
@@ -4012,7 +3550,7 @@ function play(raw, videoId) {
                         mainToggle.classList.remove('on');
                     }
 
-                    haptic(6);
+                    window.haptic(6);
                 }
             });
         });
@@ -4096,7 +3634,7 @@ function play(raw, videoId) {
                 subState.font = this.value;
                 applySubStyles();
                 saveSubSettings();
-                haptic(6);
+                window.haptic(6);
             });
         }
 
@@ -4249,7 +3787,7 @@ function play(raw, videoId) {
                 subState.pos = this.value;
                 applySubStyles();
                 saveSubSettings();
-                haptic(6);
+                window.haptic(6);
             });
         }
 
@@ -4275,7 +3813,7 @@ function play(raw, videoId) {
                 subState.textShadow = this.value;
                 applySubStyles();
                 saveSubSettings();
-                haptic(6);
+                window.haptic(6);
             });
         }
 
@@ -4306,7 +3844,7 @@ function play(raw, videoId) {
             subtitleText.style.textTransform = '';
             applySubStyles();
             saveSubSettings();
-            haptic(6);
+            window.haptic(6);
         });
 
         var origOnSubTimeUpdate = v.onSubTimeUpdate;
@@ -4328,163 +3866,3 @@ function play(raw, videoId) {
     });
     if (sourcesLoaded && sources.length) buildSourceList();
 }
-
-(function () {
-    if (!_hxInput) return;
-    var SELECTOR = [
-        'button', 'a[href]', '[role="button"]', '[role="tab"]',
-        '[role="option"]', '[role="menuitem"]', '[tabindex]',
-        '.settings-list-item', '.ep-item', '.ep-season-pill',
-        '.ctrl-btn', '#track-wrap', '#next-ep-inner'
-    ].join(',');
-    document.addEventListener('click', function (e) {
-        if (e.target.id === '__hx') return;
-        var el = e.target.closest(SELECTOR);
-        if (el) haptic();
-    }, true);
-    document.addEventListener('input', function (e) {
-        if (e.target.type === 'range') haptic();
-    }, true);
-})();
-
-(function () {
-    if (!s) return;
-
-    var epPanelBackdrop = document.getElementById('ep-panel-backdrop');
-    var epPanel = document.getElementById('ep-panel');
-    var epPanelSeasonView = document.getElementById('ep-panel-season-view');
-    var epPanelEpisodeView = document.getElementById('ep-panel-episode-view');
-    var epPanelShowTitle = document.getElementById('ep-panel-show-title');
-    var epPanelSeasonTitle = document.getElementById('ep-panel-season-title');
-    var epSeasonList = document.getElementById('ep-season-list');
-    var epPanelEpList = document.getElementById('ep-panel-ep-list');
-    var epPanelClose = document.getElementById('ep-panel-close');
-    var epPanelEpBack = document.getElementById('ep-panel-ep-back');
-    var epPanelCloseBtn = document.getElementById('ep-panel-close-btn');
-    var btnEpisodes = document.getElementById('btn-episodes');
-
-    var _epTotalSeasons = 1;
-    var _epSeasonCache = {};
-    var _epActiveSeason = parseInt(s);
-    var _epCurrentEpisode = parseInt(e || '1');
-
-    function openEpPanel() {
-        epPanelBackdrop.style.display = 'block';
-        requestAnimationFrame(function () {
-            epPanelBackdrop.classList.add('open');
-            epPanel.classList.add('open');
-        });
-        showEpSeasonView();
-    }
-
-    function closeEpPanel() {
-        epPanelBackdrop.classList.remove('open');
-        epPanel.classList.remove('open');
-        setTimeout(function () { epPanelBackdrop.style.display = 'none'; }, 300);
-    }
-
-    function showEpSeasonView() {
-        epPanelSeasonView.style.display = 'flex';
-        epPanelSeasonView.style.flexDirection = 'column';
-        epPanelEpisodeView.style.display = 'none';
-        buildSeasonRows(epSeasonList, function (season) {
-            showEpEpisodeView(season);
-        });
-    }
-
-    function showEpEpisodeView(season) {
-        epPanelSeasonTitle.textContent = 'Season ' + season;
-        epPanelSeasonView.style.display = 'none';
-        epPanelEpisodeView.style.display = 'flex';
-        epPanelEpisodeView.style.flexDirection = 'column';
-        buildPanelEpRows(season, epPanelEpList, function (epNum) {
-            closeEpPanel();
-            if (epNum !== _epCurrentEpisode || season !== _epActiveSeason) {
-                location.href = location.pathname + '?id=' + id + '&season=' + season + '&episode=' + epNum + '&ap=1';
-            }
-        });
-    }
-
-    function buildSeasonRows(container, onSelect) {
-        container.innerHTML = '';
-        for (var i = 1; i <= _epTotalSeasons; i++) {
-            (function (season) {
-                var row = document.createElement('div');
-                row.className = 'ep-season-row';
-                row.innerHTML = 'Season ' + season + '<i class="fa-solid fa-chevron-right"></i>';
-                row.addEventListener('click', function () { haptic(6); onSelect(season); });
-                container.appendChild(row);
-            })(i);
-        }
-    }
-
-    function buildPanelEpRows(season, container, onSelect) {
-        container.innerHTML = '<div style="padding:20px;text-align:center;"><svg width="28" height="28" viewBox="0 0 52 52" style="animation:_vyla_spin 0.9s linear infinite"><circle cx="26" cy="26" r="22" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="3.5" stroke-dasharray="100" stroke-dashoffset="70"/></svg></div>';
-        fetchSeason(season, function (eps) {
-            container.innerHTML = '';
-            eps.forEach(function (ep) {
-                var isCurrent = season === _epActiveSeason && ep.episode_number === _epCurrentEpisode;
-                var row = document.createElement('div');
-                row.className = 'ep-panel-ep-row' + (isCurrent ? ' current' : '');
-                var thumbHtml = '<div class="ep-panel-ep-thumb">';
-                if (ep.still_path) {
-                    thumbHtml += '<img src="https://image.tmdb.org/t/p/w185' + ep.still_path + '" alt="">';
-                } else {
-                    thumbHtml += '<div class="ep-panel-ep-thumb-placeholder"><i class="fa-solid fa-film"></i></div>';
-                }
-                thumbHtml += '<span class="ep-panel-ep-badge">E' + ep.episode_number + '</span></div>';
-                row.innerHTML = thumbHtml + '<div class="ep-panel-ep-info"><div class="ep-panel-ep-name">' + (ep.name || 'Episode ' + ep.episode_number) + '</div><div class="ep-panel-ep-meta">' + (ep.runtime ? ep.runtime + ' min' : '') + '</div></div>';
-                if (!isCurrent) {
-                    row.addEventListener('click', function () { haptic(10); onSelect(ep.episode_number); });
-                }
-                container.appendChild(row);
-            });
-            var cur = container.querySelector('.current');
-            if (cur) setTimeout(function () { cur.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 80);
-        });
-    }
-
-    function fallbackEps(season) {
-        var arr = [];
-        var count = (_epSeasonCache['_count_' + season]) || 20;
-        for (var i = 1; i <= count; i++) arr.push({ episode_number: i, name: 'Episode ' + i, runtime: null, still_path: null });
-        return arr;
-    }
-
-    function fetchSeason(season, cb) {
-        if (_epSeasonCache[season] && _epSeasonCache[season]._real) { cb(_epSeasonCache[season]); return; }
-        fetch('https://api.themoviedb.org/3/tv/' + id + '/season/' + season + '?api_key=' + TMDB_KEY + '&language=en-US&append_to_response=images')
-            .then(function (r) {
-                if (!r.ok) throw new Error('HTTP ' + r.status);
-                return r.json();
-            })
-            .then(function (d) {
-                if (!d.episodes || !d.episodes.length) throw new Error('no episodes');
-                d.episodes._real = true;
-                _epSeasonCache[season] = d.episodes;
-                _epSeasonCache[season]._real = true;
-                cb(_epSeasonCache[season]);
-            })
-            .catch(function () {
-                _epSeasonCache[season] = null;
-                cb(fallbackEps(season));
-            });
-    }
-
-    fetch('https://api.themoviedb.org/3/tv/' + id + '?api_key=' + TMDB_KEY)
-        .then(function (r) { return r.json(); })
-        .then(function (d) {
-            _epTotalSeasons = d.number_of_seasons || parseInt(s);
-            if (epPanelShowTitle) epPanelShowTitle.textContent = d.name || '';
-            if (btnEpisodes) btnEpisodes.style.display = '';
-        })
-        .catch(function () {
-            if (btnEpisodes) btnEpisodes.style.display = '';
-        });
-
-    btnEpisodes && btnEpisodes.addEventListener('click', function (ev) { ev.stopPropagation(); openEpPanel(); haptic(10); });
-    epPanelClose && epPanelClose.addEventListener('click', function () { closeEpPanel(); haptic(6); });
-    epPanelCloseBtn && epPanelCloseBtn.addEventListener('click', function () { closeEpPanel(); haptic(6); });
-    epPanelBackdrop && epPanelBackdrop.addEventListener('click', function () { closeEpPanel(); });
-    epPanelEpBack && epPanelEpBack.addEventListener('click', function () { showEpSeasonView(); haptic(6); });
-})();
