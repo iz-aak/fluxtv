@@ -6,7 +6,6 @@
     z-index: 9999;
     background: var(--menu-bg-light);
     backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
     color: var(--black-85);
     font-size: var(--ctrl-font-size);
     font-weight: 600;

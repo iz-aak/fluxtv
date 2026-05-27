@@ -5,7 +5,7 @@
     z-index: 9998;
     background: rgba(0, 0, 0, 0.45);
     backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    
     opacity: 0;
     transition: opacity 0.28s var(--ease-out);
 }
@@ -43,7 +43,6 @@
     max-width: 92vw;
     background: var(--menu-bg-strong);
     backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
     border-radius: var(--settings-radius);
     overflow-y: auto;
     overflow-x: hidden;
@@ -62,7 +61,6 @@
     max-width: 93vw;
     background: var(--menu-close-bg);
     backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
     border: 1px solid var(--white-08);
     border-radius: var(--close-btn-radius);
     color: var(--white-85);

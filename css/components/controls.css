@@ -189,7 +189,7 @@
     padding: 5px 11px;
     border-radius: 7px;
     backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    
 }
 
 #tooltip.show {
@@ -201,7 +201,7 @@
     align-items: center;
     gap: var(--space-md);
     backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    
     background: var(--menu-bg);
     border-radius: 100px;
     padding: 8px 12px;
@@ -365,7 +365,7 @@
     align-items: center;
     gap: var(--space-md);
     background: var(--menu-bg-light);
-    -webkit-backdrop-filter: blur(10px);
+    
     backdrop-filter: blur(10px);
     color: var(--black-85);
     font-size: 13px;
@@ -409,7 +409,7 @@
     align-items: center;
     gap: var(--space-md);
     background: var(--menu-bg-light);
-    -webkit-backdrop-filter: blur(10px);
+    
     backdrop-filter: blur(10px);
     color: var(--black-85);
     font-size: 13px;
