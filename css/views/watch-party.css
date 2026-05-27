@@ -93,8 +93,8 @@
 }
 
 .wp-backend-info {
-    backdrop-filter: var(--menu-blur);
-    -webkit-backdrop-filter: var(--menu-blur);
+    backdrop-filter: blur(10px) saturate(3);
+    -webkit-backdrop-filter: blur(10px) saturate(3);
     border-radius: var(--space-md);
     padding: var(--space-md) var(--space-lg);
     font-size: 12px;

@@ -1,12 +1,11 @@
 #player-controls-wrapper {
     position: absolute;
-    bottom: 0;
+    bottom: -8px;
     left: 0;
     right: 0;
     z-index: 20;
     opacity: 0;
-    transform: translateY(8px);
-    transition: var(--transition-controls);
+    transition: opacity 0.5s var(--ease-out), bottom 0.5s var(--ease-out);
     pointer-events: none;
     background: var(--controls-bg);
     border-radius: 0;
@@ -15,7 +14,7 @@
 
 #player-controls-wrapper.on {
     opacity: 1;
-    transform: translateY(0);
+    bottom: 0;
     pointer-events: auto;
 }
 
@@ -189,8 +188,8 @@
     z-index: 50;
     padding: 5px 11px;
     border-radius: 7px;
-    backdrop-filter: var(--menu-blur);
-    -webkit-backdrop-filter: var(--menu-blur);
+    backdrop-filter: blur(10px) saturate(3);
+    -webkit-backdrop-filter: blur(10px) saturate(3);
 }
 
 #tooltip.show {
@@ -201,8 +200,8 @@
     display: none;
     align-items: center;
     gap: var(--space-md);
-    backdrop-filter: var(--menu-blur);
-    -webkit-backdrop-filter: var(--menu-blur);
+    backdrop-filter: blur(10px) saturate(3);
+    -webkit-backdrop-filter: blur(10px) saturate(3);
     background: var(--menu-bg);
     border-radius: 100px;
     padding: 8px 12px;
@@ -366,8 +365,8 @@
     align-items: center;
     gap: var(--space-md);
     background: var(--menu-bg-light);
-    -webkit-backdrop-filter: var(--menu-blur);
-    backdrop-filter: var(--menu-blur);
+    -webkit-backdrop-filter: blur(10px) saturate(3);
+    backdrop-filter: blur(10px) saturate(3);
     color: var(--black-85);
     font-size: 13px;
     font-weight: 600;
@@ -410,8 +409,8 @@
     align-items: center;
     gap: var(--space-md);
     background: var(--menu-bg-light);
-    -webkit-backdrop-filter: var(--menu-blur);
-    backdrop-filter: var(--menu-blur);
+    -webkit-backdrop-filter: blur(10px) saturate(3);
+    backdrop-filter: blur(10px) saturate(3);
     color: var(--black-85);
     font-size: 13px;
     font-weight: 600;

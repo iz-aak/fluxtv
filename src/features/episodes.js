@@ -1,5 +1,4 @@
 (function () {
-    // Access variables from the global store
     var s = window.store.s;
     var e = window.store.e;
     var id = window.store.id;

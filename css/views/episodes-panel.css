@@ -4,8 +4,8 @@
     inset: 0;
     z-index: 9998;
     background: rgba(0, 0, 0, 0.45);
-    backdrop-filter: var(--menu-blur);
-    -webkit-backdrop-filter: var(--menu-blur);
+    backdrop-filter: blur(10px) saturate(3);
+    -webkit-backdrop-filter: blur(10px) saturate(3);
     opacity: 0;
     transition: opacity 0.28s var(--ease-out);
 }
@@ -17,7 +17,7 @@
 
 #ep-panel {
     position: fixed;
-    bottom: 0;
+    bottom: -20px;
     left: 0;
     right: 0;
     z-index: 9999;
@@ -28,23 +28,22 @@
     padding: 0 var(--space-md) max(var(--space-2xl), env(safe-area-inset-bottom, var(--space-2xl)));
     pointer-events: none;
     opacity: 0;
-    transform: translateY(20px);
     max-height: 70vh;
-    transition: var(--transition-fade);
+    transition: opacity 0.28s var(--ease-out), bottom 0.28s var(--ease-out);
 }
 
 #ep-panel.open {
     pointer-events: auto;
     opacity: 1;
-    transform: translateY(0);
+    bottom: 0;
 }
 
 #ep-panel>div {
     width: 100%;
     max-width: 92vw;
     background: var(--menu-bg-strong);
-    backdrop-filter: var(--menu-blur-strong);
-    -webkit-backdrop-filter: var(--menu-blur-strong);
+    backdrop-filter: blur(20px) saturate(3);
+    -webkit-backdrop-filter: blur(20px) saturate(3);
     border-radius: var(--settings-radius);
     overflow-y: auto;
     overflow-x: hidden;
@@ -62,8 +61,8 @@
     width: 100%;
     max-width: 93vw;
     background: var(--menu-close-bg);
-    backdrop-filter: var(--menu-blur-strong);
-    -webkit-backdrop-filter: var(--menu-blur-strong);
+    backdrop-filter: blur(20px) saturate(3);
+    -webkit-backdrop-filter: blur(20px) saturate(3);
     border: 1px solid var(--white-08);
     border-radius: var(--close-btn-radius);
     color: var(--white-85);

@@ -5,8 +5,8 @@
     transform: translate(-50%, -50%);
     z-index: 9999;
     background: var(--menu-bg-light);
-    backdrop-filter: var(--menu-blur);
-    -webkit-backdrop-filter: var(--menu-blur);
+    backdrop-filter: blur(10px) saturate(3);
+    -webkit-backdrop-filter: blur(10px) saturate(3);
     color: var(--black-85);
     font-size: var(--ctrl-font-size);
     font-weight: 600;
