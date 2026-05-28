@@ -10,6 +10,29 @@ window.play = function (raw, videoId) {
     var src = raw;
     var v = document.getElementById('v');
 
+    (function () {
+        if (v._vylaHooked) return;
+        v._vylaHooked = true;
+        var _origSetSrc = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'src');
+        Object.defineProperty(v, 'src', {
+            get: function () { return _origSetSrc.get.call(v); },
+            set: function (val) {
+                _origSetSrc.set.call(v, val);
+            },
+            configurable: true
+        });
+
+        var _origLoad = v.load.bind(v);
+        v.load = function () {
+            return _origLoad();
+        };
+
+        var _origPlay = v.play.bind(v);
+        v.play = function () {
+            return _origPlay();
+        };
+    })();
+
     var controlsWrapper = document.getElementById('player-controls-wrapper');
     var titleBar = document.getElementById('title-bar');
     var trackEl = document.getElementById('track');
@@ -375,7 +398,7 @@ window.play = function (raw, videoId) {
     var _progRaf = null;
     function setProg() {
         if (!v.duration || dragging) return;
-        if (_progRaf) cancelAnimationFrame(_progRaf);
+        if (_progRaf) return;
         _progRaf = requestAnimationFrame(function () {
             _progRaf = null;
             if (!v.duration || dragging) return;
@@ -476,6 +499,29 @@ window.play = function (raw, videoId) {
         window.haptic();
     }
 
+    function startCueLoop() {
+        clearInterval(subState.cueTimer);
+        var loopTick = 0;
+        subState.cueTimer = setInterval(function () {
+            loopTick++;
+            if (loopTick % 12 === 0) {
+            }
+            if (subState.activeTrack < 0 || !subState.cues.length) {
+                if (subtitleText.textContent !== '') subtitleText.textContent = '';
+                return;
+            }
+            var t = v.currentTime;
+            var found = '';
+            for (var i = 0; i < subState.cues.length; i++) {
+                var c = subState.cues[i];
+                if (t >= c.start && t <= c.end) { found = c.text; break; }
+            }
+            if (subtitleText.textContent !== found) {
+                subtitleText.textContent = found;
+            }
+        }, 80);
+    }
+
     function onReady() {
         v.classList.add('ready');
         var _alignTimer = setInterval(function () {
@@ -498,6 +544,7 @@ window.play = function (raw, videoId) {
         var loaderBottomGlow = document.querySelector('.loader-bottom-glow');
         if (loaderBottomGlow) loaderBottomGlow.classList.add('video-playing');
         setTimeout(function () { showUI(true); }, 180);
+        startCueLoop();
         scheduleRetry();
         attemptAutoplay();
         restoreVolume();
@@ -693,12 +740,10 @@ window.play = function (raw, videoId) {
 
     function showBuffering() {
         clearTimeout(bufferingTimeout);
-        if (v.readyState >= 3) return;
         bufferingTimeout = setTimeout(function () {
             if (v.paused || v.readyState >= 3) return;
-            bufSpinner.style.display = 'flex';
             bufSpinner.classList.add('active');
-        }, 800);
+        }, 500);
     }
 
     function showBufferingImmediate() {
@@ -733,7 +778,6 @@ window.play = function (raw, videoId) {
     var _videoErrBlocked = false;
     v.addEventListener('error', function () {
         if (_videoErrBlocked) return;
-        if (typeof hls !== 'undefined' && hls) return;
         var errText = document.querySelector('.err-text');
         var errSub = document.querySelector('.err-sub');
         if (errText) errText.innerHTML = 'Source Not Found';
@@ -898,27 +942,17 @@ window.play = function (raw, videoId) {
         hls.attachMedia(v);
 
         hls.on(Hls.Events.MANIFEST_PARSED, function (evt, mdata) {
-            if (mdata && mdata.levels) {
-                mdata.levels.forEach(function (lvl) {
-                    if (!lvl.attrs) lvl.attrs = {};
-                    if (!lvl.attrs.CODECS || /[?&]vz=1/.test(src)) {
-                        lvl.attrs.CODECS = 'avc1.42E01E,mp4a.40.2';
-                        lvl.videoCodec = 'avc1.42E01E';
-                        lvl.audioCodec = 'mp4a.40.2';
-                    }
-                });
-            }
-            if (_srcSettled) return;
+            mdata.levels.forEach(function (lvl) {
+                if (!lvl.attrs) lvl.attrs = {};
+                if (!lvl.attrs.CODECS) {
+                    lvl.attrs.CODECS = 'avc1.42E01E,mp4a.40.2';
+                    lvl.videoCodec = 'avc1.42E01E';
+                    lvl.audioCodec = 'mp4a.40.2';
+                }
+            });
+
             _manifestParsed = true;
-            _srcSettled = true;
-            clearTimeout(_stallTimer);
             hideBuffering();
-            if (/[?&]vz=1/.test(src)) {
-                v.addEventListener('loadedmetadata', function kick() {
-                    v.removeEventListener('loadedmetadata', kick);
-                    setTimeout(function () { v.currentTime = v.currentTime || 0.1; }, 500);
-                });
-            }
             var errScreen = document.getElementById('error-screen');
             if (errScreen) errScreen.classList.remove('show');
             buildQualityOpts();
@@ -933,6 +967,16 @@ window.play = function (raw, videoId) {
             hls.destroy();
             _doFallback();
         });
+
+        v.addEventListener('loadedmetadata', function () {
+            onReady();
+            startDurationPoll();
+        });
+        v.addEventListener('canplay', function () {
+            if (isNaN(v.duration) || v.duration === 0) return;
+            tDur.textContent = window.fmt(v.duration);
+            restoreTimestamp();
+        });
     }
 
     else if (isTedub && window.isIOS() && v.canPlayType('application/vnd.apple.mpegurl')) {
@@ -943,17 +987,22 @@ window.play = function (raw, videoId) {
             onReady();
             startDurationPoll();
         });
+        v.addEventListener('canplay', function () {
+            if (isNaN(v.duration) || v.duration === 0) return;
+            tDur.textContent = window.fmt(v.duration);
+            restoreTimestamp();
+        });
     }
 
     else if (!isMp4 && Hls.isSupported()) {
 
         var hlsConfig = {
             startLevel: -1,
-            nudgeMaxRetry: 5,
+            nudgeMaxRetry: 0,
             maxBufferLength: 30,
             maxFragLookUpTolerance: 0.25,
-            fragLoadingMaxRetry: 3,
-            fragLoadingRetryDelay: 1000,
+            fragLoadingMaxRetry: 2,
+            fragLoadingRetryDelay: 500,
             maxMaxBufferLength: 60,
             maxBufferSize: 60 * 1000 * 1000,
             backBufferLength: 10,
@@ -965,12 +1014,12 @@ window.play = function (raw, videoId) {
             abrEwmaFastLive: 3,
             abrEwmaSlowLive: 9,
             highBufferWatchdogPeriod: 2,
+            nudgeMaxRetry: 5,
             nudgeOffset: 0.2,
-            fragLoadingTimeOut: 30000,
-            manifestLoadingTimeOut: 30000,
-            levelLoadingTimeOut: 30000,
+            fragLoadingTimeOut: 20000,
+            manifestLoadingTimeOut: 20000,
+            levelLoadingTimeOut: 20000,
             testBandwidth: true,
-            enableWorker: !/[?&]vz=1/.test(src),
             xhrSetup: function (xhr, url) {
                 xhr.withCredentials = false;
                 if (url && url.startsWith(window.baseURL)) {
@@ -982,9 +1031,8 @@ window.play = function (raw, videoId) {
         var hls = new Hls(hlsConfig);
         var _manifestParsed = false;
         showBufferingImmediate();
-
-        hls.attachMedia(v);
         hls.loadSource(src);
+        hls.attachMedia(v);
 
         v.addEventListener('progress', function () {
             if (v.buffered.length) {
@@ -997,7 +1045,7 @@ window.play = function (raw, videoId) {
             if (!_srcSettled && (isNaN(v.duration) || v.duration === 0) && !_manifestParsed) {
                 _doFallback();
             }
-        }, 25000);
+        }, 10000);
 
         hls.on(Hls.Events.LEVEL_SWITCHED, function () {
             if (isAutoQuality) updateQualityLabel();
@@ -1010,17 +1058,7 @@ window.play = function (raw, videoId) {
             }
         });
 
-        hls.on(Hls.Events.MANIFEST_PARSED, function (evt, mdata) {
-            if (mdata && mdata.levels) {
-                mdata.levels.forEach(function (lvl) {
-                    if (!lvl.attrs) lvl.attrs = {};
-                    if (!lvl.attrs.CODECS && !/[?&]vz=1/.test(src)) {
-                        lvl.attrs.CODECS = 'avc1.42E01E,mp4a.40.2';
-                        lvl.videoCodec = 'avc1.42E01E';
-                        lvl.audioCodec = 'mp4a.40.2';
-                    }
-                });
-            }
+        hls.on(Hls.Events.MANIFEST_PARSED, function () {
             if (_srcSettled) return;
             _manifestParsed = true;
             _srcSettled = true;
@@ -1032,95 +1070,19 @@ window.play = function (raw, videoId) {
         });
 
         hls.on(Hls.Events.ERROR, function (event, data) {
-            if (data.details === 'bufferAppendingError' || data.details === 'bufferAppendError') {
-                if (data.sourceBufferName === 'audio' && !/[?&]vz=1/.test(src)) return;
-                try {
-                    hls.recoverMediaError();
-                    if (/[?&]vz=1/.test(src)) {
-                        v.currentTime += 2.0;
-                    }
-                } catch (ex) { }
-                return;
-            }
             if (data.details === Hls.ErrorDetails.BUFFER_INCOMPATIBLE_CODECS_ERROR) {
                 _doFallback();
                 return;
             }
             if (data.details === 'fragParsingError') {
-                if (!data.fatal) {
-                    return;
-                }
-                hls.destroy();
-                _srcSettled = false;
-                _manifestParsed = false;
-                var _noWorkerHls = new Hls({
-                    startLevel: -1,
-                    maxBufferLength: 30,
-                    maxMaxBufferLength: 60,
-                    maxBufferSize: 60 * 1000 * 1000,
-                    backBufferLength: 10,
-                    maxBufferHole: 0.5,
-                    nudgeMaxRetry: 5,
-                    fragLoadingTimeOut: 20000,
-                    manifestLoadingTimeOut: 20000,
-                    levelLoadingTimeOut: 20000,
-                    enableWorker: false,
-                    preferManagedMediaSource: false,
-                });
-                hls = _noWorkerHls;
-                _noWorkerHls.loadSource(src);
-                _noWorkerHls.attachMedia(v);
-                _noWorkerHls.on(Hls.Events.MANIFEST_PARSED, function () {
-                    _manifestParsed = true;
-                    _srcSettled = true;
-                    hideBuffering();
-                    var errScreen = document.getElementById('error-screen');
-                    if (errScreen) errScreen.classList.remove('show');
-                    buildQualityOpts();
-                });
-                _noWorkerHls.on(Hls.Events.ERROR, function (evt, d) {
-                    if (!d.fatal) return;
-                    _doFallback();
-                });
-                return;
-            }
-            if (!_manifestParsed) {
-                if (data.fatal && (data.details === 'manifestParsingError' || data.details === 'manifestLoadError')) {
-                    var responseData = data.response && data.response.data ? data.response.data : '';
-                    var looksLikeMp4 = typeof responseData === 'string' && (responseData.indexOf('ftyp') !== -1 || responseData.indexOf('moov') !== -1);
-                    if (looksLikeMp4) {
-                        hls.destroy();
-                        _srcSettled = true;
-                        clearTimeout(_stallTimer);
-                        v.src = src;
-                        v.load();
-                        hideBuffering();
-                        v.addEventListener('loadedmetadata', function onMp4Meta() {
-                            v.removeEventListener('loadedmetadata', onMp4Meta);
-                            onReady();
-                            startDurationPoll();
-                        });
-                        v.addEventListener('canplay', function onMp4Can() {
-                            v.removeEventListener('canplay', onMp4Can);
-                            if (isNaN(v.duration) || v.duration === 0) return;
-                            tDur.textContent = window.fmt(v.duration);
-                            restoreTimestamp();
-                        });
-                        return;
-                    }
-                    _doFallback();
+                if (data.frag && data.frag.stats && data.frag.stats.loaded === 0) {
+                    var nextStart = (data.frag.start || 0) + (data.frag.duration || 5);
+                    hls.startLoad(nextStart);
                 }
                 return;
             }
-            if (data.details === 'bufferAppendingError' || data.details === 'bufferAppendError') {
-                if (data.sourceBufferName === 'audio' && !/[?&]vz=1/.test(src)) return;
-                try { hls.recoverMediaError(); } catch (ex) { }
-                return;
-            }
-            if (!data.fatal) {
-                if (data.details === 'bufferAppendingError' || data.details === 'bufferAppendError' || data.details === 'bufferStalledError') return;
-                return;
-            }
+            if (!_manifestParsed) return;
+            if (!data.fatal) return;
             if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
                 if (data.details === 'keyLoadError') return;
                 if (data.details === 'fragLoadError') {
@@ -1159,11 +1121,8 @@ window.play = function (raw, videoId) {
                             audioCodec: '',
                         };
                         var _h = new Hls(_cfg);
-
-                        v.load();
+                        _h.loadSource(loadUrl);
                         _h.attachMedia(v);
-                        _h.loadSource(url);
-
                         _h.on(Hls.Events.MANIFEST_PARSED, function () {
                             hideBuffering();
                             buildQualityOpts();
@@ -1198,14 +1157,15 @@ window.play = function (raw, videoId) {
             restoreTimestamp();
         });
 
-    }
-
-    else if (isMp4 || (!Hls.isSupported() && v.canPlayType('video/mp4'))) {
+    } else if (isMp4 || v.canPlayType('application/vnd.apple.mpegurl')) {
         showBufferingImmediate();
         v.src = src;
-        v.load();
         v.addEventListener('loadedmetadata', function () {
             hideBuffering();
+            var loaderBottomGlow = document.querySelector('.loader-bottom-glow');
+            if (loaderBottomGlow) {
+                loaderBottomGlow.classList.add('video-playing');
+            }
             onReady();
             startDurationPoll();
         });
@@ -1213,9 +1173,6 @@ window.play = function (raw, videoId) {
             if (isNaN(v.duration) || v.duration === 0) return;
             tDur.textContent = window.fmt(v.duration);
             restoreTimestamp();
-        });
-        v.addEventListener('error', function () {
-            hideBuffering();
         });
     }
 
@@ -2490,8 +2447,8 @@ window.play = function (raw, videoId) {
         return window.baseURL + '/api?url=' + encodeURIComponent(url) + '&vn=1';
     }
 
-
     function switchSource(url, forceMp4) {
+        var currentSrcName = sources[currentSourceIndex] ? (sources[currentSourceIndex].label || sources[currentSourceIndex].source || 'unknown') : 'unknown';
         var wasPlaying = !v.paused;
         var savedTime = v.currentTime || 0;
 
@@ -2499,10 +2456,12 @@ window.play = function (raw, videoId) {
         if (errScreen) errScreen.classList.remove('show');
 
         _videoErrBlocked = true;
+
         if (typeof hls !== 'undefined' && hls && hls.destroy) {
             try { hls.destroy(); } catch (ex) { }
         }
-        setTimeout(function () { _videoErrBlocked = false; }, 8000);
+
+        setTimeout(function () { _videoErrBlocked = false; }, 2000);
 
         function doSwitch(isMp4) {
             var loadUrl = isMp4 ? url : toProxiedHls(url);
@@ -2515,15 +2474,8 @@ window.play = function (raw, videoId) {
 
             var oldV = v;
             oldV.pause();
-            try {
-                if (typeof hls !== 'undefined' && hls && hls.destroy) {
-                    hls.destroy();
-                    hls = undefined;
-                }
-            } catch (ex) { }
             oldV.removeAttribute('src');
             oldV.load();
-            setTimeout(function () { try { oldV.remove(); } catch (ex) { } }, 500);
 
             var newV = document.createElement('video');
             newV.id = 'v';
@@ -2547,31 +2499,11 @@ window.play = function (raw, videoId) {
 
             showBufferingImmediate();
 
-            function startWithFreshElement(url, attempt) {
-                var _looksLikeMp4 = (/\.mp4(?:\?|$)/i.test(url)) && !/\.m3u8/i.test(url) && !/[?&]vz=1/.test(url);
-
-                if (_looksLikeMp4) {
-                    v.src = url;
-                    v.load();
-                    hideBuffering();
-                    v.addEventListener('loadedmetadata', function onMp4Meta() {
-                        v.removeEventListener('loadedmetadata', onMp4Meta);
-                        hideBuffering();
-                        v.currentTime = savedTime;
-                        if (wasPlaying) v.play().catch(function () { });
-                    });
-                    v.addEventListener('error', function onMp4Err() {
-                        v.removeEventListener('error', onMp4Err);
-                        hideBuffering();
-                    });
-                    return;
-                }
-
+            function startWithFreshElement(hlsUrl, attempt) {
                 if (typeof hls !== 'undefined' && hls && hls.destroy) {
                     try { hls.destroy(); } catch (ex) { }
                     hls = undefined;
                 }
-
                 var _h = new Hls(_isTedubUrl ? {
                     startLevel: -1,
                     maxBufferLength: 30,
@@ -2588,56 +2520,34 @@ window.play = function (raw, videoId) {
                 } : {
                     startLevel: -1,
                     maxBufferLength: 30,
-                    maxMaxBufferLength: 90,
-                    maxBufferSize: 80 * 1000 * 1000,
-                    backBufferLength: 15,
-                    maxBufferHole: /[?&]vz=1/.test(url) ? 4.0 : 0.5,
-                    nudgeMaxRetry: 15,
-                    appendErrorMaxRetry: 15,
-                    fragLoadingTimeOut: 35000,
-                    manifestLoadingTimeOut: 35000,
-                    levelLoadingTimeOut: 35000,
+                    maxMaxBufferLength: 60,
+                    maxBufferSize: 60 * 1000 * 1000,
+                    backBufferLength: 10,
+                    maxBufferHole: 0.5,
+                    nudgeMaxRetry: 5,
+                    fragLoadingTimeOut: 20000,
+                    manifestLoadingTimeOut: 20000,
+                    levelLoadingTimeOut: 20000,
                     enableWorker: false,
                     preferManagedMediaSource: false,
-                    forceKeyFrameOnDiscontinuity: true,
-                    skipAudioDiff: 1.0,
-                    maxFragLookUpTolerance: 0.5
+                    forceKeyFrameOnDiscontinuity: false,
+                    videoCodec: 'avc1.42E01E',
+                    audioCodec: 'mp4a.40.2',
                 });
 
-                if (/[?&]vz=1/.test(url)) {
-                    v.addEventListener('loadedmetadata', function kick() {
-                        v.removeEventListener('loadedmetadata', kick);
-                        setTimeout(function () {
-                            if (v.currentTime < 1) v.currentTime = 0.5;
-                        }, 800);
-                    });
-                }
-
-                v.load();
                 _h.attachMedia(v);
-                _h.loadSource(url);
-
-                var _switchStallTimer = setTimeout(function () {
-                    _h.destroy();
-                    if (attempt < 2) {
-                        startWithFreshElement(url, attempt + 1);
-                    } else {
-                        hideBuffering();
-                    }
-                }, 25000);
+                _h.loadSource(hlsUrl);
 
                 _h.on(Hls.Events.MANIFEST_PARSED, function (evt, mdata) {
-                    clearTimeout(_switchStallTimer);
-                    if (mdata && mdata.levels) {
-                        mdata.levels.forEach(function (lvl) {
-                            if (!lvl.attrs) lvl.attrs = {};
-                            if (!lvl.attrs.CODECS || /[?&]vz=1/.test(url)) {
-                                lvl.attrs.CODECS = 'avc1.42E01E,mp4a.40.2';
-                                lvl.videoCodec = 'avc1.42E01E';
-                                lvl.audioCodec = 'mp4a.40.2';
-                            }
-                        });
-                    }
+                    mdata.levels.forEach(function (lvl) {
+                        if (!lvl.attrs) lvl.attrs = {};
+                        if (!lvl.attrs.CODECS) {
+                            lvl.attrs.CODECS = 'avc1.42E01E,mp4a.40.2';
+                            lvl.videoCodec = 'avc1.42E01E';
+                            lvl.audioCodec = 'mp4a.40.2';
+                        }
+                    });
+
                     hls = _h;
                     hideBuffering();
                     buildQualityOpts();
@@ -2646,28 +2556,8 @@ window.play = function (raw, videoId) {
                 });
 
                 _h.on(Hls.Events.ERROR, function (evt, data) {
-                    clearTimeout(_switchStallTimer);
-                    if (!data.fatal) {
-                        if (data.details === 'bufferAppendingError' || data.details === 'bufferAppendError') {
-                            if (data.sourceBufferName === 'audio' && !/[?&]vz=1/.test(url)) return;
-                            try {
-                                _h.recoverMediaError();
-                                if (/[?&]vz=1/.test(url)) {
-                                    v.currentTime += 1.5;
-                                }
-                            } catch (ex) { }
-                        }
-                        return;
-                    }
+                    if (!data.fatal) return;
                     _h.destroy();
-                    if (data.details === 'fragParsingError') {
-                        if (attempt < 2) {
-                            startWithFreshElement(url, attempt + 1);
-                        } else {
-                            hideBuffering();
-                        }
-                        return;
-                    }
                     if (data.details === 'manifestLoadError' || data.details === 'manifestParsingError') {
                         var _next = currentSourceIndex + 1;
                         if (window._fallbackSources && _next < window._fallbackSources.length) {
@@ -2678,7 +2568,7 @@ window.play = function (raw, videoId) {
                         return;
                     }
                     if (attempt < 2) {
-                        startWithFreshElement(url, attempt + 1);
+                        startWithFreshElement(hlsUrl, attempt + 1);
                     } else {
                         hideBuffering();
                     }
@@ -2691,7 +2581,7 @@ window.play = function (raw, videoId) {
                 });
             }
 
-            setTimeout(function () { startWithFreshElement(loadUrl, 1); }, 400);
+            startWithFreshElement(loadUrl, 1);
         }
 
         if (forceMp4 !== undefined && forceMp4 !== null) {
@@ -2699,7 +2589,7 @@ window.play = function (raw, videoId) {
             return;
         }
 
-        var looksLikeMp4 = /\.mp4(?:\?|$)/i.test(url) && !/\.m3u8/i.test(url) && !/[?&](tesub|tedub|mrsub|mrdub)=1/.test(url);
+        var looksLikeMp4 = (/\.mp4(?:\?|$)/i.test(url) || /[?&](tesub|tedub|mrsub|mrdub)=1/.test(url)) && !/\.m3u8/i.test(url);
         if (looksLikeMp4) {
             doSwitch(true);
             return;
@@ -2918,15 +2808,7 @@ window.play = function (raw, videoId) {
         tooltip.classList.remove('show');
         lastTooltipPct = -1;
     });
-    var _tooltipRaf = null;
-    wrap.addEventListener('mousemove', function (e) {
-        e.stopPropagation();
-        if (_tooltipRaf) return;
-        _tooltipRaf = requestAnimationFrame(function () {
-            _tooltipRaf = null;
-            hoverTooltip(e.clientX);
-        });
-    });
+    wrap.addEventListener('mousemove', function (e) { e.stopPropagation(); hoverTooltip(e.clientX); });
     wrap.addEventListener('mousedown', function (e) {
         e.stopPropagation();
         dragging = true;
@@ -3116,14 +2998,17 @@ window.play = function (raw, videoId) {
     });
 
     v.addEventListener('durationchange', function () {
-        if (v.duration && v.duration > 0) {
+        if (v.duration) {
             clearTimeout(retryTimer);
             retryCount = maxRetries;
             hideBuffering();
             restoreTimestamp();
         }
     });
-    setTimeout(function () { restoreTimestamp(); }, 2000);
+
+    setTimeout(function () {
+        restoreTimestamp();
+    }, 2000);
 
     var lastSaveTime = 0;
     v.addEventListener('timeupdate', function () {
@@ -3958,6 +3843,7 @@ window.play = function (raw, videoId) {
             window.haptic(6);
         });
 
+        var origOnSubTimeUpdate = v.onSubTimeUpdate;
         var _delayedTimeUpdate = function () {
             if (subState.activeTrack < 0 || !subState.cues.length) {
                 if (_lastCueText !== '') { subtitleText.textContent = ''; _lastCueText = ''; }
@@ -3967,7 +3853,6 @@ window.play = function (raw, videoId) {
             if (found !== _lastCueText) { subtitleText.textContent = found; _lastCueText = found; }
         };
         v.removeEventListener('timeupdate', onSubTimeUpdate);
-        v.removeEventListener('timeupdate', _delayedTimeUpdate);
         v.addEventListener('timeupdate', _delayedTimeUpdate);
     })();
 
