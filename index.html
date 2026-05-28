@@ -14,7 +14,14 @@
 
     <div id="loader">
         <div id="loader-bg"></div>
-        <span id="loader-msg"></span>
+        <div id="loader-spinner-wrap" style="display: flex; flex-direction: column; align-items: center; gap: 16px;">
+            <div class="wave-loader">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            <span id="loader-spinner-label"></span>
+        </div>
     </div>
 
     <div id="player">
@@ -325,7 +332,22 @@
                         <span class="svsh-title" id="src-detail-title">Source</span>
                         <span></span>
                     </div>
-                    <div id="src-detail-body" class="src-detail-body-wrap"></div>
+                    <div id="src-detail-body" class="src-detail-body-wrap">
+                        <div id="src-loading-state" class="src-state-container" style="display: none;">
+                            <div class="src-loading-dots">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
+                        </div>
+                        <div id="src-failed-state" class="src-state-container" style="display: none;">
+                            <div class="src-failed-body">
+                                <div class="src-failed-title">Failed to scrape</div>
+                                <div class="src-failed-message">There was an error while trying to find any videos. Try a different source?</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="settings-view" id="settings-view-subtitles">

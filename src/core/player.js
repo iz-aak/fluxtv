@@ -1189,7 +1189,7 @@ window.play = function (raw, videoId) {
         ? (window.baseURL + '/subtitles/tv/' + id + '/' + s + '/' + (e || '1'))
         : (window.baseURL + '/subtitles/movie/' + id);
 
-    document.getElementById('lbl-subtitle').textContent = 'Loading\u2026';
+    document.getElementById('lbl-subtitle').textContent = 'Off';
 
     var inlineEl = document.getElementById('sub-entries-inline');
     if (inlineEl) inlineEl.innerHTML = '<div class="sub-skeleton">' +
@@ -2656,8 +2656,12 @@ fetch(vylaEndpoint)
             backBtn.onclick = function () {
                 var dv = document.getElementById('src-detail-view');
                 var lv = document.getElementById('src-list-view');
+                var loadingState = document.getElementById('src-loading-state');
+                var failedState = document.getElementById('src-failed-state');
                 if (dv) dv.style.display = 'none';
                 if (lv) lv.style.display = 'flex';
+                if (loadingState) loadingState.style.display = 'none';
+                if (failedState) failedState.style.display = 'none';
             };
         }
     }
@@ -2696,8 +2700,12 @@ fetch(vylaEndpoint)
         var backBtn = document.getElementById('src-detail-back');
         if (backBtn) {
             backBtn.onclick = function () {
+                var loadingState = document.getElementById('src-loading-state');
+                var failedState = document.getElementById('src-failed-state');
                 detailView.style.display = 'none';
                 listView.style.display = 'flex';
+                if (loadingState) loadingState.style.display = 'none';
+                if (failedState) failedState.style.display = 'none';
             };
         }
     }

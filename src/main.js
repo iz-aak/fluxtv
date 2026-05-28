@@ -140,6 +140,9 @@ async function startSourceDiscovery() {
         });
 
     try {
+        const loaderLabel = document.getElementById('loader-spinner-label');
+        if (loaderLabel) loaderLabel.textContent = 'Fetching sources';
+        
         const metaRes = await fetch(`${baseURL}/api?sources_meta`);
         const metaData = await metaRes.json();
         const rawSources = metaData.sources || [];
@@ -169,6 +172,9 @@ async function startSourceDiscovery() {
         for (let i = 0; i < store.sources.length; i++) {
             store.currentSourceIndex = i;
             try {
+                const loaderLabel = document.getElementById('loader-spinner-label');
+                if (loaderLabel) loaderLabel.textContent = `Testing ${store.sources[i].label}`;
+                
                 const url = await testSource(store.sources[i].key);
                 store.sources[i].url = url;
                 
@@ -210,18 +216,36 @@ document.addEventListener('click', async (e) => {
                     if (item.dataset.fetching) return;
                     item.dataset.fetching = "1";
                     
-                    const oldHtml = item.innerHTML;
-                    item.innerHTML = `<span style="flex:1;font-size:15px;font-weight:500;color:rgba(255,255,255,0.8);">Testing ${source.label}...</span><span style="width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,0.2);border-top-color:#fff;animation:_vyla_spin 0.8s linear infinite;"></span>`;
+                    const listView = document.getElementById('src-list-view');
+                    const detailView = document.getElementById('src-detail-view');
+                    const titleEl = document.getElementById('src-detail-title');
+                    const loadingState = document.getElementById('src-loading-state');
+                    const failedState = document.getElementById('src-failed-state');
+                    
+                    if (titleEl) titleEl.textContent = source.label;
+                    if (loadingState) loadingState.style.display = 'flex';
+                    if (failedState) failedState.style.display = 'none';
+                    
+                    if (titleEl) titleEl.textContent = source.label;
+                    if (listView) listView.style.display = 'none';
+                    if (detailView) detailView.style.display = 'flex';
                     
                     try {
                         const url = await testSource(source.key);
                         source.url = url;
                         item.removeAttribute('data-fetching');
-                        item.innerHTML = oldHtml;
+                        
+                        if (listView) listView.style.display = 'flex';
+                        if (detailView) detailView.style.display = 'none';
+                        if (loadingState) loadingState.style.display = 'none';
+                        
                         item.click(); 
                     } catch (err) {
                         item.removeAttribute('data-fetching');
-                        item.innerHTML = oldHtml;
+                        
+                        loadingState.style.display = 'none';
+                        failedState.style.display = 'flex';
+                        
                         if (typeof window.showNowPlayingToast === 'function') {
                             window.showNowPlayingToast(`${source.label} failed`);
                         }

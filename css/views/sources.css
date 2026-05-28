@@ -176,18 +176,6 @@
     text-align: center;
 }
 
-.src-failed-icon {
-    width: 54px;
-    height: 54px;
-    border-radius: 14px;
-    background: var(--white-06);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 22px;
-    color: var(--white-45);
-}
-
 .src-failed-title {
     font-size: 17px;
     font-weight: 600;
@@ -233,4 +221,69 @@
     color: #fff;
     letter-spacing: 0.04em;
     text-transform: uppercase;
+}
+
+.src-state-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    padding-top: var(--space-3xl);
+}
+
+.src-loading-dots {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+    justify-content: center;
+    height: 28px;
+    margin-top: var(--space-lg) 0;
+}
+
+.src-loading-dots span {
+    width: 6px;
+    height: 20px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.8);
+    animation: waveScale 1.8s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+    transform-origin: center;
+}
+
+.src-loading-dots span:nth-child(1) {
+    animation-delay: 0s;
+}
+
+.src-loading-dots span:nth-child(2) {
+    animation-delay: 0.1s;
+}
+
+.src-loading-dots span:nth-child(3) {
+    animation-delay: 0.2s;
+}
+
+.src-loading-dots span:nth-child(4) {
+    animation-delay: 0.3s;
+}
+
+.src-failed-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-lg);
+    text-align: center;
+}
+
+.src-failed-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.src-failed-message {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.5);
+    line-height: 1.55;
+    max-width: 280px;
 }
