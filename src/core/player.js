@@ -2699,23 +2699,86 @@ window.play = function (raw, videoId) {
         }
     }
 
-    function fetchSources() {
-        if (sourcesLoaded && sources.length > 0) {
-            if (typeof buildSourceList === 'function') buildSourceList();
-            return;
-        }
-        var sourcesOpts = document.getElementById('sources-opts');
-        if (sourcesOpts) sourcesOpts.innerHTML = '<div class="source-skeleton"><div class="source-skel-item"></div><div class="source-skel-item"></div><div class="source-skel-item"></div></div>';
-        fetchAllSources()
-            .then(function (result) {
-                sources = result.aggregated.length ? result.aggregated : [result.first];
-                sourcesLoaded = true;
-                currentSourceIndex = 0;
-                buildSourceList();
-            })
-            .catch(function () {
-                buildSourceList();
+function fetchSources() {
+        sources = [];
+        sourcesLoaded = false;
+        var endpoint = s 
+            ? window.baseURL + '/tv?id=' + id + '&season=' + s + '&episode=' + (e || '1')
+            : window.baseURL + '/movie?id=' + id;
+        
+        var es = new EventSource(endpoint);
+
+        es.addEventListener('meta', function (ev) {
+            var data = JSON.parse(ev.data);
+            var subs = (data.subtitles || []).filter(function (sub) { 
+                return sub && (sub.file || sub.url) && sub.label; 
             });
+
+            window.availableSubtitles = subs;
+            var inlineEl = document.getElementById('sub-entries-inline');
+            var lblSub = document.getElementById('lbl-subtitle');
+            
+            if (lblSub) lblSub.textContent = 'Off';
+
+            if (!subs.length) {
+                if (inlineEl) inlineEl.innerHTML = '<div style="padding:20px;text-align:center;color:rgba(255,255,255,0.3);font-size:14px;">None available</div>';
+                return;
+            }
+
+            var groups = {};
+            subs.forEach(function (sub, i) {
+                sub._idx = i;
+                var lang = sub.label || 'Unknown';
+                var base = lang.replace(/\d+$/, '').trim().split(' ')[0];
+                if (!groups[base]) groups[base] = { label: base, subs: [] };
+                groups[base].subs.push(sub);
+            });
+
+            window._buildLangGroups = function () {
+                if (!inlineEl) return;
+                inlineEl.innerHTML = '';
+                Object.keys(groups).forEach(function (lang) {
+                    var g = groups[lang];
+                    var code = typeof getLangCode === 'function' ? getLangCode(g.label) : '';
+                    var row = document.createElement('div');
+                    row.className = 'sub-lang-group-item';
+                    row.innerHTML = (typeof flagImg === 'function' ? flagImg(code) : '') +
+                        '<span class="slg-name">' + g.label + '</span>' +
+                        '<span class="slg-count">' + g.subs.length + '</span>' +
+                        '<i class="fa-solid fa-chevron-right slg-chevron"></i>';
+                    row.addEventListener('click', function () {
+                        window.haptic(6);
+                        showSubEntries(g.label, g.subs, code);
+                    });
+                    inlineEl.appendChild(row);
+                });
+            };
+            window._buildLangGroups();
+        });
+
+        es.addEventListener('source', function (ev) {
+            var data = JSON.parse(ev.data);
+            if (data.source) {
+                sources.push(data.source);
+                sourcesLoaded = true;
+                if (sources.length === 1) {
+                    currentSourceIndex = 0;
+                    var isMp4 = (/\.mp4(?:\?|$)/i.test(data.source.url)) && 
+                                !/\.m3u8/i.test(data.source.url) && 
+                                !/[?&](tesub|tedub|mrsub|mrdub)=1/.test(data.source.url);
+                    switchSource(data.source.url, isMp4);
+                }
+                buildSourceList();
+            }
+        });
+
+        es.addEventListener('done', function () {
+            es.close();
+        });
+
+        es.onerror = function () {
+            es.close();
+        };
     }
 
     fetchSources();
