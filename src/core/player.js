@@ -1321,9 +1321,7 @@ window.play = function (raw, videoId) {
             });
     }
 
-    document.getElementById('lbl-subtitle').textContent = 'Off';
-
-    fetch(vylaEndpoint)
+fetch(vylaEndpoint)
         .then(function (r) {
             var ct = r.headers.get('Content-Type') || '';
             if (!ct.includes('application/json')) throw new Error('not json');
@@ -1332,8 +1330,6 @@ window.play = function (raw, videoId) {
         .then(function (d) {
             var subs = Array.isArray(d) ? d : (d.subtitles || []);
             subs = subs.filter(function (s) { return s && (s.file || s.url) && s.label; });
-
-            var inlineEl = document.getElementById('sub-entries-inline');
 
             if (!subs.length) {
                 if (inlineEl) inlineEl.innerHTML =
@@ -1359,17 +1355,17 @@ window.play = function (raw, videoId) {
                 inlineEl.style.display = '';
                 Object.keys(groups).forEach(function (lang) {
                     var g = groups[lang];
-                    var code = getLangCode(g.label);
+                    var code = typeof getLangCode === 'function' ? getLangCode(g.label) : '';
                     var row = document.createElement('div');
                     row.className = 'sub-lang-group-item';
                     row.innerHTML =
-                        flagImg(code) +
+                        (typeof flagImg === 'function' ? flagImg(code) : '') +
                         '<span class="slg-name">' + g.label + '</span>' +
                         '<span class="slg-count">' + g.subs.length + '</span>' +
                         '<i class="fa-solid fa-chevron-right slg-chevron"></i>';
                     row.addEventListener('click', function () {
-                        window.haptic(6);
-                        showSubEntries(g.label, g.subs, code);
+                        if (typeof window.haptic === 'function') window.haptic(6);
+                        if (typeof showSubEntries === 'function') showSubEntries(g.label, g.subs, code);
                     });
                     inlineEl.appendChild(row);
                 });
@@ -1377,20 +1373,25 @@ window.play = function (raw, videoId) {
 
             window._buildLangGroups();
 
-            document.getElementById('sub-off-row').addEventListener('click', function () {
-                subState.activeTrack = -1;
-                subState.cues = [];
-                subtitleText.textContent = '';
-                _lastCueText = '';
-                document.getElementById('lbl-subtitle').textContent = 'Off';
-                document.getElementById('sub-off-check').style.display = 'flex';
-                var mainToggle = document.getElementById('subtitle-toggle');
-                if (mainToggle) mainToggle.classList.remove('on');
-                window.haptic(6);
-            });
+            var offRow = document.getElementById('sub-off-row');
+            if (offRow) {
+                offRow.addEventListener('click', function () {
+                    subState.activeTrack = -1;
+                    subState.cues = [];
+                    subtitleText.textContent = '';
+                    _lastCueText = '';
+                    document.getElementById('lbl-subtitle').textContent = 'Off';
+                    var check = document.getElementById('sub-off-check');
+                    if (check) check.style.display = 'flex';
+                    var mainToggle = document.getElementById('subtitle-toggle');
+                    if (mainToggle) mainToggle.classList.remove('on');
+                    if (typeof window.haptic === 'function') window.haptic(6);
+                });
+            }
         })
         .catch(function () {
             document.getElementById('lbl-subtitle').textContent = 'Off';
+            if (inlineEl) inlineEl.innerHTML = '<div style="padding:20px;text-align:center;color:rgba(255,255,255,0.3);font-size:14px;">None available</div>';
         });
 
     function showSubEntries(langLabel, subs, code) {
@@ -1408,7 +1409,7 @@ window.play = function (raw, videoId) {
         if (sectionDivider) sectionDivider.style.display = 'none';
         if (customizeBtn) customizeBtn.style.display = 'none';
 
-        var titleCode = code || getLangCode(langLabel);
+        var titleCode = code || (typeof getLangCode === 'function' ? getLangCode(langLabel) : '');
         if (svshTitle) {
             svshTitle.innerHTML = (titleCode ? '<img class="slg-flag" src="https://flagcdn.com/20x15/' + titleCode + '.png" width="20" height="15" style="border-radius:2px;object-fit:cover;vertical-align:middle;margin-right:6px;">' : '') + langLabel;
         }
@@ -1423,15 +1424,15 @@ window.play = function (raw, videoId) {
                 if (sectionDivider) sectionDivider.style.display = '';
                 if (customizeBtn) customizeBtn.style.display = '';
                 if (svshTitle) svshTitle.textContent = 'Subtitles';
-                window._buildLangGroups();
+                if (typeof window._buildLangGroups === 'function') window._buildLangGroups();
                 var newBack = document.querySelector('#sub-lang-group-view .svsh-back');
                 if (newBack) {
                     newBack.addEventListener('click', function () {
-                        showSettingsView('main');
-                        window.haptic(6);
+                        if (typeof showSettingsView === 'function') showSettingsView('main');
+                        if (typeof window.haptic === 'function') window.haptic(6);
                     });
                 }
-                window.haptic(6);
+                if (typeof window.haptic === 'function') window.haptic(6);
             });
         }
 
@@ -1442,7 +1443,7 @@ window.play = function (raw, videoId) {
             var shortUrl = url.replace(/^https?:\/\//, '').substring(0, 28) + (url.length > 28 ? '\u2026' : '');
             var fmtLabel = (sub.format || sub.type || (url.toLowerCase().includes('.srt') ? 'srt' : 'vtt')).toUpperCase();
             var srcName = sub.source || '';
-            var entryCode = code || getLangCode(langLabel);
+            var entryCode = code || (typeof getLangCode === 'function' ? getLangCode(langLabel) : '');
             var entryFlag = entryCode
                 ? '<img src="https://flagcdn.com/20x15/' + entryCode + '.png" width="26" height="20" style="border-radius:3px;object-fit:cover;flex-shrink:0;" alt="">'
                 : '<i class="fa-solid fa-globe" style="font-size:13px;color:var(--white-45);width:26px;text-align:center;"></i>';
@@ -1463,29 +1464,31 @@ window.play = function (raw, videoId) {
 
             row.addEventListener('click', function () {
                 row.style.opacity = '0.5';
-                fetchSub(url)
-                    .then(function (cues) {
-                        inlineEl.querySelectorAll('.sub-entry-row').forEach(function (el) {
-                            el.removeAttribute('data-active');
-                            el.style.background = '';
+                if (typeof fetchSub === 'function') {
+                    fetchSub(url)
+                        .then(function (cues) {
+                            inlineEl.querySelectorAll('.sub-entry-row').forEach(function (el) {
+                                el.removeAttribute('data-active');
+                                el.style.background = '';
+                            });
+                            row.setAttribute('data-active', '1');
+                            row.style.background = 'rgba(255,255,255,0.1)';
+                            row.style.opacity = '';
+                            subState.activeTrack = sub._idx;
+                            subState.cues = cues;
+                            _lastCueText = null;
+                            document.getElementById('lbl-subtitle').textContent = langLabel;
+                            var offCheck = document.getElementById('sub-off-check');
+                            if (offCheck) offCheck.style.display = 'none';
+                            var mainToggle = document.getElementById('subtitle-toggle');
+                            if (mainToggle) mainToggle.classList.add('on');
+                            if (typeof window.haptic === 'function') window.haptic(6);
+                            if (typeof closeSettings === 'function') closeSettings();
+                        })
+                        .catch(function () {
+                            row.style.opacity = '';
                         });
-                        row.setAttribute('data-active', '1');
-                        row.style.background = 'rgba(255,255,255,0.1)';
-                        row.style.opacity = '';
-                        subState.activeTrack = sub._idx;
-                        subState.cues = cues;
-                        _lastCueText = null;
-                        document.getElementById('lbl-subtitle').textContent = langLabel;
-                        var offCheck = document.getElementById('sub-off-check');
-                        if (offCheck) offCheck.style.display = 'none';
-                        var mainToggle = document.getElementById('subtitle-toggle');
-                        if (mainToggle) mainToggle.classList.add('on');
-                        window.haptic(6);
-                        closeSettings();
-                    })
-                    .catch(function () {
-                        row.style.opacity = '';
-                    });
+                }
             });
 
             inlineEl.appendChild(row);
@@ -2700,87 +2703,9 @@ window.play = function (raw, videoId) {
     }
 
 function fetchSources() {
-        sources = [];
-        sourcesLoaded = false;
-        var endpoint = s 
-            ? window.baseURL + '/tv?id=' + id + '&season=' + s + '&episode=' + (e || '1')
-            : window.baseURL + '/movie?id=' + id;
-        
-        var es = new EventSource(endpoint);
-
-        es.addEventListener('meta', function (ev) {
-            var data = JSON.parse(ev.data);
-            var subs = (data.subtitles || []).filter(function (sub) { 
-                return sub && (sub.file || sub.url) && sub.label; 
-            });
-
-            window.availableSubtitles = subs;
-            var inlineEl = document.getElementById('sub-entries-inline');
-            var lblSub = document.getElementById('lbl-subtitle');
-            
-            if (lblSub) lblSub.textContent = 'Off';
-
-            if (!subs.length) {
-                if (inlineEl) inlineEl.innerHTML = '<div style="padding:20px;text-align:center;color:rgba(255,255,255,0.3);font-size:14px;">None available</div>';
-                return;
-            }
-
-            var groups = {};
-            subs.forEach(function (sub, i) {
-                sub._idx = i;
-                var lang = sub.label || 'Unknown';
-                var base = lang.replace(/\d+$/, '').trim().split(' ')[0];
-                if (!groups[base]) groups[base] = { label: base, subs: [] };
-                groups[base].subs.push(sub);
-            });
-
-            window._buildLangGroups = function () {
-                if (!inlineEl) return;
-                inlineEl.innerHTML = '';
-                Object.keys(groups).forEach(function (lang) {
-                    var g = groups[lang];
-                    var code = typeof getLangCode === 'function' ? getLangCode(g.label) : '';
-                    var row = document.createElement('div');
-                    row.className = 'sub-lang-group-item';
-                    row.innerHTML = (typeof flagImg === 'function' ? flagImg(code) : '') +
-                        '<span class="slg-name">' + g.label + '</span>' +
-                        '<span class="slg-count">' + g.subs.length + '</span>' +
-                        '<i class="fa-solid fa-chevron-right slg-chevron"></i>';
-                    row.addEventListener('click', function () {
-                        window.haptic(6);
-                        showSubEntries(g.label, g.subs, code);
-                    });
-                    inlineEl.appendChild(row);
-                });
-            };
-            window._buildLangGroups();
-        });
-
-        es.addEventListener('source', function (ev) {
-            var data = JSON.parse(ev.data);
-            if (data.source) {
-                sources.push(data.source);
-                sourcesLoaded = true;
-                if (sources.length === 1) {
-                    currentSourceIndex = 0;
-                    var isMp4 = (/\.mp4(?:\?|$)/i.test(data.source.url)) && 
-                                !/\.m3u8/i.test(data.source.url) && 
-                                !/[?&](tesub|tedub|mrsub|mrdub)=1/.test(data.source.url);
-                    switchSource(data.source.url, isMp4);
-                }
-                buildSourceList();
-            }
-        });
-
-        es.addEventListener('done', function () {
-            es.close();
-        });
-
-        es.onerror = function () {
-            es.close();
-        };
+        if (sourcesLoaded && typeof buildSourceList === 'function') buildSourceList();
     }
-
+    
     fetchSources();
     if (sourcesLoaded && typeof buildSourceList === 'function') buildSourceList();
 
