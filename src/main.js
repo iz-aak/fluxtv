@@ -60,72 +60,83 @@ async function fetchAllSources() {
         params.set("episode", store.e || "1");
     }
 
-    const metaRes = await fetch(`${baseURL}/api?sources_meta`);
-    if (!metaRes.ok) throw new Error("failed to fetch source metadata");
+    try {
+        const metaRes = await fetch(`${baseURL}/api?sources_meta`);
 
-    const meta = await metaRes.json();
-    const sources = meta.sources || [];
-
-    return new Promise((resolve, reject) => {
-        const sourcesData = [];
-        let firstResolved = false;
-        let completed = 0;
-
-        for (const src of sources) {
-            const controller = new AbortController();
-
-            const timeout = setTimeout(() => {
-                controller.abort();
-            }, src.timeout || 20000);
-
-            params.set("source", src.key);
-
-            const testURL = `${baseURL}/api/test/${store.id}?${params.toString()}`;
-
-            fetch(testURL, {
-                signal: controller.signal
-            })
-                .then(async (res) => {
-                    clearTimeout(timeout);
-
-                    if (!res.ok) return;
-
-                    const data = await res.json();
-
-                    if (!data.ok || !data.url) return;
-
-                    const entry = {
-                        label: src.label,
-                        source: src.key,
-                        url: data.url,
-                        elapsed_ms: data.elapsed_ms
-                    };
-
-                    sourcesData.push(entry);
-
-                    if (!firstResolved) {
-                        firstResolved = true;
-
-                        resolve({
-                            first: entry,
-                            aggregated: sourcesData
-                        });
-                    } else {
-                        if (typeof store.buildSourceList === "function") {
-                            store.buildSourceList();
-                        }
-                    }
-                })
-                .catch(() => { })
-                .finally(() => {
-                    completed++;
-
-                    if (completed >= sources.length && !firstResolved) {
-                        reject(new Error("no working sources"));
-                    }
-                });
+        if (!metaRes.ok) {
+            throw new Error("failed to fetch source metadata");
         }
-    });
+
+        const meta = await metaRes.json();
+        const sources = meta.sources || [];
+
+        return new Promise((resolve, reject) => {
+            const sourcesData = [];
+            let firstResolved = false;
+            let completed = 0;
+
+            for (const src of sources) {
+                const controller = new AbortController();
+
+                const timeout = setTimeout(() => {
+                    controller.abort();
+                }, src.timeout || 20000);
+
+                params.set("source", src.key);
+
+                const testURL = `${baseURL}/api/test/${store.id}?${params.toString()}`;
+
+                fetch(testURL, {
+                    signal: controller.signal
+                })
+                    .then(async (res) => {
+                        clearTimeout(timeout);
+
+                        if (!res.ok) {
+                            return;
+                        }
+
+                        const data = await res.json();
+
+                        if (!data.ok || !data.url) {
+                            return;
+                        }
+
+                        const entry = {
+                            label: src.label,
+                            source: src.key,
+                            url: data.url,
+                            elapsed_ms: data.elapsed_ms
+                        };
+
+                        sourcesData.push(entry);
+
+                        if (!firstResolved) {
+                            firstResolved = true;
+
+                            resolve({
+                                first: entry,
+                                aggregated: sourcesData
+                            });
+                        } else {
+                            if (typeof store.buildSourceList === "function") {
+                                store.buildSourceList();
+                            }
+                        }
+                    })
+                    .catch(() => { })
+                    .finally(() => {
+                        completed++;
+
+                        if (completed >= sources.length && !firstResolved) {
+                            reject(new Error("no working sources"));
+                        }
+                    });
+            }
+        });
+    } catch (err) {
+        throw err;
+    }
 }
 
 function startSourceDiscovery() {
@@ -138,6 +149,9 @@ function startSourceDiscovery() {
             store.sourcesLoaded = true;
             store.currentSourceIndex = 0;
 
+            window.play(store.sources[0].url, store.id);
+            window._fallbackSources = result.aggregated;
+
             const tmdbUrl = store.s
                 ? `https://api.themoviedb.org/3/tv/${store.id}?api_key=${TMDB_KEY}&append_to_response=images`
                 : `https://api.themoviedb.org/3/movie/${store.id}?api_key=${TMDB_KEY}&append_to_response=images`;
@@ -146,45 +160,84 @@ function startSourceDiscovery() {
                 .then(mr => mr.json())
                 .then(meta => {
                     let metaTitle = (meta.title || meta.name || 'Unknown');
-                    if (store.s) metaTitle += ` \u00b7 S${store.s}E${store.e || '1'}`;
+
+                    if (store.s) {
+                        metaTitle += ` · S${store.s}E${store.e || '1'}`;
+                    }
+
                     document.title = metaTitle;
+
                     window.setTitleWithTmdbImage(metaTitle, meta);
 
                     if (store.s) {
                         const epBadge = document.getElementById('ep-badge');
-                        if (epBadge) epBadge.textContent = `S${store.s} \u00b7 E${store.e || '1'}`;
+
+                        if (epBadge) {
+                            epBadge.textContent = `S${store.s} · E${store.e || '1'}`;
+                        }
                     }
 
                     window.showNowPlayingToast(metaTitle);
-                    window._fallbackSources = result.aggregated;
-                    window.play(store.sources[0].url, store.id);
-                    if (typeof store.buildSourceList === 'function') store.buildSourceList();
+
+                    if (typeof store.buildSourceList === 'function') {
+                        store.buildSourceList();
+                    }
                 })
                 .catch(() => {
                     let metaTitle = 'Unknown';
-                    if (store.s) metaTitle += ` \u00b7 S${store.s}E${store.e || '1'}`;
+
+                    if (store.s) {
+                        metaTitle += ` · S${store.s}E${store.e || '1'}`;
+                    }
+
                     window.showNowPlayingToast(metaTitle);
-                    window.play(store.sources[0].url, store.id);
                 });
         })
         .catch(() => {
             const spinnerEl = document.getElementById('loader-spinner-wrap');
-            if (spinnerEl) spinnerEl.style.display = 'none';
+
+            if (spinnerEl) {
+                spinnerEl.style.display = 'none';
+            }
+
             const errScreen = document.getElementById('error-screen');
-            if (errScreen) errScreen.classList.add('show');
+
+            if (errScreen) {
+                errScreen.classList.add('show');
+            }
         });
 }
 
 document.addEventListener('keydown', (e) => {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+    if (
+        e.target.tagName === 'INPUT' ||
+        e.target.tagName === 'SELECT' ||
+        e.target.tagName === 'TEXTAREA'
+    ) return;
+
     const v = document.getElementById('v');
+
     if (!v) return;
+
     if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
         if (document.body.classList.contains('tv-nav-mode')) return;
-        if (e.key === 'ArrowLeft') { v.currentTime = Math.max(0, v.currentTime - 10); window.showUI(); }
-        if (e.key === 'ArrowRight') { v.currentTime = Math.min(v.duration || 0, v.currentTime + 10); window.showUI(); }
+
+        if (e.key === 'ArrowLeft') {
+            v.currentTime = Math.max(0, v.currentTime - 10);
+            window.showUI();
+        }
+
+        if (e.key === 'ArrowRight') {
+            v.currentTime = Math.min(v.duration || 0, v.currentTime + 10);
+            window.showUI();
+        }
     }
-    if (e.key === ' ' || e.key === 'k' || e.key === 'K') { e.preventDefault(); haptic(10); v.paused ? v.play() : v.pause(); }
+
+    if (e.key === ' ' || e.key === 'k' || e.key === 'K') {
+        e.preventDefault();
+        haptic(10);
+        v.paused ? v.play() : v.pause();
+    }
 });
 
 init();
