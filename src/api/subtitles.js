@@ -26,6 +26,3 @@ fetch('https://restcountries.com/v3.1/all?fields=cca2,languages')
             return '<img class="slg-flag" src="https://flagcdn.com/20x15/' + code + '.png" width="26" height="20" alt="">';
         };
     })
-    .catch(function (err) {
-        console.error("Failed to load country/language data", err);
-    });

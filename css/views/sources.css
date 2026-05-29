@@ -38,6 +38,7 @@
 
 .quality-auto-row {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     padding: var(--space-lg) var(--space-xl);
@@ -59,6 +60,14 @@
 
 .quality-hint-link {
     color: var(--white-92);
+    text-decoration: none;
+}
+
+.quality-auto-sub {
+    font-size: 11px;
+    color: var(--white-45);
+    padding-left: 20px;
+    margin-bottom: var(--space-sm);
     text-decoration: none;
 }
 

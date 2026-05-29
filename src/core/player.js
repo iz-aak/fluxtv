@@ -228,7 +228,18 @@ window.play = function (raw, videoId) {
         contrast: 100,
         saturate: 100,
         ratio: 'contain',
+        ascii: false,
+        asciiColor: true
     };
+
+    var ASCII_CHARSET = ' `.-\':_,^=;><+!rc*/z?sLTv)J7(|Fi{C}fI31tlu[neoZ5Yxjya]2ESwqkP6h9d4VpOGbUAKXHm8RD#$Bg0MNWQ%&@';
+    var asciiRenderId = null;
+    var asciiCanvas = null;
+    var asciiCtx = null;
+    var hiddenCanvas = null;
+    var hiddenCtx = null;
+    var offCanvas = null;
+    var offCtx = null;
 
     var subPosMap = { top: '82%', high: '35%', mid: '12%', low: '6%', bottom: '2%' };
     var subWeightMap = { light: '300', normal: '500', bold: '700' };
@@ -327,6 +338,214 @@ window.play = function (raw, videoId) {
         v.style.objectFit = videoState.ratio;
     }
 
+    function ensureAsciiCanvases() {
+        if (asciiCanvas && hiddenCanvas && offCanvas) return;
+        var playerEl = document.getElementById('player');
+        asciiCanvas = document.createElement('canvas');
+        asciiCanvas.id = 'ascii-output-canvas';
+        asciiCanvas.style.position = 'fixed';
+        asciiCanvas.style.top = '0';
+        asciiCanvas.style.left = '0';
+        asciiCanvas.style.width = '100vw';
+        asciiCanvas.style.height = '100vh';
+        asciiCanvas.style.display = 'none';
+        asciiCanvas.style.pointerEvents = 'none';
+        asciiCanvas.style.zIndex = '17';
+        asciiCanvas.style.background = 'black';
+        document.body.appendChild(asciiCanvas);
+        asciiCtx = asciiCanvas.getContext('2d');
+
+        hiddenCanvas = document.createElement('canvas');
+        hiddenCanvas.style.position = 'absolute';
+        hiddenCanvas.style.left = '-9999px';
+        hiddenCanvas.style.width = '1px';
+        hiddenCanvas.style.height = '1px';
+        hiddenCanvas.style.visibility = 'hidden';
+        document.body.appendChild(hiddenCanvas);
+        hiddenCtx = hiddenCanvas.getContext('2d');
+
+        offCanvas = document.createElement('canvas');
+        offCtx = offCanvas.getContext('2d');
+    }
+
+    function updateAsciiButtonUI() {
+        var asciiBtn = document.getElementById('btn-toggle-ascii');
+        var colorBtn = document.getElementById('btn-toggle-ascii-color');
+        if (asciiBtn) {
+            asciiBtn.classList.toggle('on', videoState.ascii);
+        }
+        if (colorBtn) {
+            colorBtn.classList.toggle('on', videoState.asciiColor);
+        }
+    }
+
+    function setAsciiCanvasVisibility(visible) {
+        if (!asciiCanvas) return;
+        asciiCanvas.style.display = visible ? 'block' : 'none';
+    }
+
+    function toggleAsciiMode(enabled) {
+        videoState.ascii = enabled;
+        updateVideoLabel();
+        updateAsciiButtonUI();
+        ensureAsciiCanvases();
+        setAsciiCanvasVisibility(enabled);
+        var pcw = document.getElementById('player-controls-wrapper');
+        var tb = document.getElementById('title-bar');
+        if (enabled) {
+            if (pcw) { pcw.style.zIndex = '20'; pcw.style.position = 'fixed'; pcw.style.bottom = '0'; pcw.style.left = '0'; pcw.style.width = '100vw'; }
+            if (tb) { tb.style.zIndex = '20'; tb.style.position = 'fixed'; tb.style.top = '0'; tb.style.left = '0'; tb.style.width = '100vw'; }
+        } else {
+            if (pcw) { pcw.style.zIndex = ''; pcw.style.position = ''; pcw.style.bottom = ''; pcw.style.left = ''; pcw.style.width = ''; }
+            if (tb) { tb.style.zIndex = ''; tb.style.position = ''; tb.style.top = ''; tb.style.left = ''; tb.style.width = ''; }
+        }
+        var videoEl = document.getElementById('v') || v;
+        if (enabled) {
+            if (videoEl) { videoEl.style.opacity = '0'; videoEl.style.pointerEvents = 'none'; }
+            startAsciiLoop();
+        } else {
+            if (videoEl) {
+                videoEl.style.opacity = '1';
+                videoEl.style.pointerEvents = '';
+                videoEl.style.visibility = '';
+            }
+            stopAsciiLoop();
+        }
+    }
+
+    function toggleAsciiColorMode(enabled) {
+        videoState.asciiColor = enabled;
+        updateAsciiButtonUI();
+        if (videoState.ascii) {
+            renderAsciiFrame();
+        }
+    }
+
+    function startAsciiLoop() {
+        if (asciiRenderId) return;
+        asciiRenderId = requestAnimationFrame(renderAsciiFrame);
+    }
+
+    function stopAsciiLoop() {
+        if (asciiRenderId) {
+            cancelAnimationFrame(asciiRenderId);
+            asciiRenderId = null;
+        }
+    }
+
+    function renderAsciiError() {
+        if (!asciiCtx) return;
+        var dpr = window.devicePixelRatio || 1;
+        var canvasWidth = window.innerWidth * dpr;
+        var canvasHeight = window.innerHeight * dpr;
+        asciiCanvas.width = canvasWidth;
+        asciiCanvas.height = canvasHeight;
+        asciiCanvas.style.width = '100vw';
+        asciiCanvas.style.height = '100vh';
+        asciiCtx.setTransform(1, 0, 0, 1, 0, 0);
+        asciiCtx.fillStyle = '#000';
+        asciiCtx.fillRect(0, 0, canvasWidth, canvasHeight);
+        asciiCtx.font = '18px sans-serif';
+        asciiCtx.fillStyle = '#fff';
+        asciiCtx.fillText('ASCII Render unavailable. CORS blocks frame read.', 20, 40);
+        asciiCtx.fillText('Switch back to normal playback to continue.', 20, 72);
+    }
+
+    function renderAsciiFrame() {
+        asciiRenderId = null;
+        if (!videoState.ascii) {
+            var _ve = document.getElementById('v') || v;
+            if (_ve) _ve.style.visibility = '';
+            return;
+        }
+        var videoEl = document.getElementById('v') || v;
+        if (!videoEl || !asciiCtx || !hiddenCtx) {
+            asciiRenderId = requestAnimationFrame(renderAsciiFrame);
+            return;
+        }
+
+        videoEl.style.visibility = 'hidden';
+        var sourceWidth = videoEl.videoWidth || videoEl.clientWidth || window.innerWidth;
+        var sourceHeight = videoEl.videoHeight || videoEl.clientHeight || window.innerHeight;
+        if (sourceWidth === 0 || sourceHeight === 0) {
+            asciiRenderId = requestAnimationFrame(renderAsciiFrame);
+            return;
+        }
+
+        hiddenCanvas.width = sourceWidth;
+        hiddenCanvas.height = sourceHeight;
+        try {
+            hiddenCtx.drawImage(videoEl, 0, 0, sourceWidth, sourceHeight);
+        } catch (err) {
+            renderAsciiError();
+            return;
+        }
+
+        var dpr = window.devicePixelRatio || 1;
+        var canvasWidth = window.innerWidth * dpr;
+        var canvasHeight = window.innerHeight * dpr;
+        asciiCanvas.width = canvasWidth;
+        asciiCanvas.height = canvasHeight;
+        asciiCanvas.style.width = '100vw';
+        asciiCanvas.style.height = '100vh';
+        asciiCtx.setTransform(1, 0, 0, 1, 0, 0);
+        asciiCtx.font = (7 * dpr) + 'px "Courier New", Courier, monospace';
+
+        var measuredWidth = asciiCtx.measureText('M').width;
+        var metrics = asciiCtx.measureText('M');
+        var charWidth = Math.ceil(measuredWidth);
+        var charHeight = Math.ceil((metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent) || charWidth * 2);
+        var cols = Math.floor(canvasWidth / charWidth);
+        var rows = Math.floor(canvasHeight / charHeight);
+        offCanvas.width = cols;
+        offCanvas.height = rows;
+        offCtx.drawImage(hiddenCanvas, 0, 0, cols, rows);
+
+        var frameData;
+        try {
+            frameData = offCtx.getImageData(0, 0, cols, rows).data;
+        } catch (err) {
+            renderAsciiError();
+            return;
+        }
+
+        asciiCtx.fillStyle = '#000';
+        asciiCtx.fillRect(0, 0, canvasWidth, canvasHeight);
+        asciiCtx.textBaseline = 'top';
+        asciiCtx.textAlign = 'left';
+        if (!window._asciiDebugLogged) {
+            window._asciiDebugLogged = true;
+            var metrics = asciiCtx.measureText('M');
+        }
+
+        var offsetX = Math.max(0, Math.floor((canvasWidth - cols * charWidth) / 2));
+        var offsetY = Math.max(0, Math.floor((canvasHeight - rows * charHeight) / 2));
+        var charsetLength = ASCII_CHARSET.length - 1;
+
+        for (var y = 0; y < rows; y++) {
+            for (var x = 0; x < cols; x++) {
+                var idx = (y * cols + x) * 4;
+                var r = frameData[idx];
+                var g = frameData[idx + 1];
+                var b = frameData[idx + 2];
+                var lum = 0.299 * r + 0.587 * g + 0.114 * b;
+                var charIndex = Math.min(charsetLength, Math.max(0, Math.floor((lum / 255) * charsetLength)));
+                var asciiChar = ASCII_CHARSET.charAt(charIndex);
+                if (asciiChar === ' ') continue;
+
+                if (videoState.asciiColor) {
+                    asciiCtx.fillStyle = 'rgb(' + r + ',' + g + ',' + b + ')';
+                } else {
+                    var gray = Math.round(lum);
+                    asciiCtx.fillStyle = 'rgb(' + gray + ',' + gray + ',' + gray + ')';
+                }
+                asciiCtx.fillText(asciiChar, offsetX + x * charWidth, offsetY + y * charHeight);
+            }
+        }
+
+        asciiRenderId = requestAnimationFrame(renderAsciiFrame);
+    }
+
     if (subFontSelect) subFontSelect.value = subState.font;
     if (subSizeSelect) subSizeSelect.value = subState.size;
     if (subColorInput) subColorInput.value = subState.color;
@@ -336,6 +555,7 @@ window.play = function (raw, videoId) {
     if (subEdgeSelect) subEdgeSelect.value = subState.edge;
 
     applySubStyles();
+    updateAsciiButtonUI();
 
     function updateListActive(containerId, clickedEl, labelId, labelText) {
         var container = document.getElementById(containerId);
@@ -1321,7 +1541,7 @@ window.play = function (raw, videoId) {
             });
     }
 
-fetch(vylaEndpoint)
+    fetch(vylaEndpoint)
         .then(function (r) {
             var ct = r.headers.get('Content-Type') || '';
             if (!ct.includes('application/json')) throw new Error('not json');
@@ -2420,9 +2640,31 @@ fetch(vylaEndpoint)
         });
     }
 
+    var btnToggleAscii = document.getElementById('btn-toggle-ascii');
+    if (btnToggleAscii) {
+        btnToggleAscii.addEventListener('click', function (e) {
+            e.stopPropagation();
+            toggleAsciiMode(!videoState.ascii);
+            window.haptic(6);
+        });
+    }
+
+    var btnToggleAsciiColor = document.getElementById('btn-toggle-ascii-color');
+    if (btnToggleAsciiColor) {
+        btnToggleAsciiColor.addEventListener('click', function (e) {
+            e.stopPropagation();
+            toggleAsciiColorMode(!videoState.asciiColor);
+            window.haptic(6);
+        });
+    }
+
     function updateVideoLabel() {
         var lbl = document.getElementById('lbl-video');
         if (!lbl) return;
+        if (videoState.ascii) {
+            lbl.textContent = 'ASCII';
+            return;
+        }
         var isDefault = videoState.brightness == 100 && videoState.contrast == 100 && videoState.saturate == 100 && videoState.ratio === 'contain';
         lbl.textContent = isDefault ? 'Default' : 'Custom';
     }
@@ -2710,10 +2952,10 @@ fetch(vylaEndpoint)
         }
     }
 
-function fetchSources() {
+    function fetchSources() {
         if (sourcesLoaded && typeof buildSourceList === 'function') buildSourceList();
     }
-    
+
     fetchSources();
     if (sourcesLoaded && typeof buildSourceList === 'function') buildSourceList();
 
@@ -3130,7 +3372,7 @@ function fetchSources() {
 
     var clickOverlay = document.createElement('div');
     clickOverlay.id = 'click-overlay';
-    clickOverlay.style.cssText = 'position:absolute;inset:0;z-index:1;';
+    clickOverlay.style.cssText = 'position:fixed;inset:0;z-index:18;';
     v.parentElement.insertBefore(clickOverlay, v.nextSibling);
 
     var _clickOverlayTouchHandled = false;

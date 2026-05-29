@@ -296,6 +296,26 @@
                             class="settings-range" min="0" max="200" value="100"></div>
                     <div class="settings-list-item"><span>Saturation</span><input type="range" id="vid-saturate"
                             class="settings-range" min="0" max="200" value="100"></div>
+                    <div class="settings-main-divider"></div>
+                    <div class="quality-auto-row">
+                        <span class="quality-auto-label">ASCII Mode</span>
+                        <div class="settings-toggle" id="btn-toggle-ascii">
+                            <div class="settings-toggle-knob"></div>
+                        </div>
+                    </div>
+                    <div class="quality-auto-sub">
+                        Inspired by <a href="https://github.com/vyla-entertainment/cli-player" target="_blank"
+                            style="color: white; text-decoration: none;">CLI Player</a>
+                        <br>
+                        May cause lag on some devices.
+                    </div>
+                    <div class="quality-auto-row">
+                        <span class="quality-auto-label">ASCII Color</span>
+                        <div class="settings-toggle on" id="btn-toggle-ascii-color">
+                            <div class="settings-toggle-knob"></div>
+                        </div>
+                    </div>
+                    <div class="settings-main-divider"></div>
                 </div>
                 <div class="sub-customize-title">Aspect Ratio</div>
                 <div class="settings-list" id="ratio-opts">
@@ -344,7 +364,8 @@
                         <div id="src-failed-state" class="src-state-container" style="display: none;">
                             <div class="src-failed-body">
                                 <div class="src-failed-title">Failed to scrape</div>
-                                <div class="src-failed-message">There was an error while trying to find any videos. Try a different source?</div>
+                                <div class="src-failed-message">There was an error while trying to find any videos. Try
+                                    a different source?</div>
                             </div>
                         </div>
                     </div>
