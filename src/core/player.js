@@ -2912,43 +2912,70 @@ window.play = function (raw, videoId) {
         var listView = document.getElementById('src-list-view');
         var detailView = document.getElementById('src-detail-view');
         var detailTitle = document.getElementById('src-detail-title');
-        var detailBody = document.getElementById('src-detail-body');
+        var loadingState = document.getElementById('src-loading-state');
+        var failedState = document.getElementById('src-failed-state');
 
-        if (!listView || !detailView || !detailTitle || !detailBody) return;
+        if (!listView || !detailView || !detailTitle) return;
 
-        var rawName = source.label || source.source || 'Source';
+        var rawName = source.label || source.source || source.key || 'Source';
         var name = rawName.charAt(0).toUpperCase() + rawName.slice(1);
         var emoji = source.emoji || '';
         detailTitle.textContent = name + (emoji ? ' ' + emoji : '');
 
-        detailBody.innerHTML =
-            '<div style="display:flex;align-items:center;justify-content:center;flex:1;padding:40px 0;">' +
-            '<div style="display:flex;align-items:center;gap:8px;">' +
-            '<span style="width:11px;height:11px;border-radius:50%;background:rgba(255,255,255,0.7);display:inline-block;animation:_vyla_dot 1.4s ease-in-out infinite both;animation-delay:0s;"></span>' +
-            '<span style="width:11px;height:11px;border-radius:50%;background:rgba(255,255,255,0.7);display:inline-block;animation:_vyla_dot 1.4s ease-in-out infinite both;animation-delay:0.16s;"></span>' +
-            '<span style="width:11px;height:11px;border-radius:50%;background:rgba(255,255,255,0.7);display:inline-block;animation:_vyla_dot 1.4s ease-in-out infinite both;animation-delay:0.32s;"></span>' +
-            '</div></div>';
-
         listView.style.display = 'none';
         detailView.style.display = 'flex';
 
-        currentSourceIndex = idx;
-        closeSettings();
-
-        var _isSourceMp4 = (/\.mp4(?:\?|$)/i.test(source.url)) && !/\.m3u8/i.test(source.url) && !/[?&](tesub|tedub|mrsub|mrdub)=1/.test(source.url); switchSource(source.url, _isSourceMp4 ? true : false);
-
-        buildSourceList();
+        if (loadingState) loadingState.style.display = 'flex';
+        if (failedState) failedState.style.display = 'none';
 
         var backBtn = document.getElementById('src-detail-back');
         if (backBtn) {
             backBtn.onclick = function () {
-                var loadingState = document.getElementById('src-loading-state');
-                var failedState = document.getElementById('src-failed-state');
                 detailView.style.display = 'none';
                 listView.style.display = 'flex';
                 if (loadingState) loadingState.style.display = 'none';
                 if (failedState) failedState.style.display = 'none';
             };
+        }
+
+        function proceedToPlay(url) {
+            if (loadingState) loadingState.style.display = 'none';
+            if (failedState) failedState.style.display = 'none';
+            detailView.style.display = 'none';
+            listView.style.display = 'flex';
+
+            currentSourceIndex = idx;
+            closeSettings();
+            var _isSourceMp4 = (/\.mp4(?:\?|$)/i.test(url)) && !/\.m3u8/i.test(url) && !/[?&](tesub|tedub|mrsub|mrdub)=1/.test(url);
+            switchSource(url, _isSourceMp4 ? true : false);
+            buildSourceList();
+        }
+
+        if (source.url) {
+            proceedToPlay(source.url);
+        } else {
+            var params = new URLSearchParams({ source: source.source || source.key || rawName });
+            if (typeof s !== 'undefined' && s) {
+                params.set("season", s);
+                params.set("episode", (typeof e !== 'undefined' && e) ? e : "1");
+            }
+
+            var testURL = window.baseURL + '/api/test/' + id + '?' + params.toString();
+
+            fetch(testURL)
+                .then(function (res) {
+                    if (!res.ok) throw new Error("Network error");
+                    return res.json();
+                })
+                .then(function (data) {
+                    if (!data.ok || !data.url) throw new Error("Source failed");
+                    source.url = data.url;
+                    proceedToPlay(data.url);
+                })
+                .catch(function () {
+                    if (loadingState) loadingState.style.display = 'none';
+                    if (failedState) failedState.style.display = 'flex';
+                });
         }
     }
 

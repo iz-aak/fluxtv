@@ -100,24 +100,10 @@
         min-height: 0;
     }
 
-    #settings-close-btn {
-        max-width: 97vw;
-        padding: 9px;
-        font-size: 12px;
-        position: sticky;
-        bottom: 0;
-    }
-
     .settings-grid {
         grid-template-columns: 1fr 1fr;
         gap: 4px;
         padding: 6px;
-    }
-
-    .settings-tile {
-        padding: 8px 6px !important;
-        border-radius: 35px !important;
-        gap: 3px !important;
     }
 
     .tile-label {
@@ -147,12 +133,6 @@
         padding: 8px 10px;
         font-size: 12px;
         gap: 8px;
-    }
-
-    .settings-main-item {
-        padding: 8px 10px;
-        font-size: 13px;
-        gap: 10px;
     }
 
     .settings-main-divider {
@@ -247,13 +227,6 @@
         max-width: 97vw;
         border-radius: 10px;
         max-height: 62vh;
-    }
-
-    #ep-panel-close-btn {
-        max-width: 97vw;
-        padding: 9px;
-        font-size: 12px;
-        border-radius: 8px;
     }
 
     .sub-presets-grid {
