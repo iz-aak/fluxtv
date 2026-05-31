@@ -1,7 +1,7 @@
 {
-  "name": "Vyla Player",
-  "short_name": "Vyla",
-  "description": "Video streaming player with fullscreen support",
+  "name": "FluxTV",
+  "short_name": "FluxTV",
+  "description": "FluxTV streaming player with fullscreen support",
   "start_url": "/",
   "display": "standalone",
   "background_color": "transparent",
