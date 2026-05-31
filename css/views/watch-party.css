@@ -13,8 +13,8 @@
     width: 100%;
     padding: 15px;
     border-radius: var(--space-md);
-    background: var(--white-85);
-    color: var(--black-85);
+    background: var(--accent);
+    color: #fff;
     font-family: var(--font);
     font-size: 15px;
     font-weight: 700;
@@ -25,7 +25,7 @@
 }
 
 .wp-btn-primary:hover {
-    background: var(--white-92);
+    background: var(--accent-hover);
 }
 
 .wp-btn-secondary {
