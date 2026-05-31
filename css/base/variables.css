@@ -1,6 +1,8 @@
 :root {
     --font: 'DM Sans', sans-serif;
     --bg: #000;
+    --accent: #E50914;
+    --accent-hover: #f6121d;
     --white: #fff;
     --white-92: rgba(255, 255, 255, 0.92);
     --white-85: rgba(255, 255, 255, 0.85);
