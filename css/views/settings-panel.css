@@ -323,7 +323,7 @@
 }
 
 .settings-toggle.on {
-    background: #fff;
+    background: var(--accent);
 }
 
 .settings-toggle-knob {
@@ -339,7 +339,7 @@
 
 .settings-toggle.on .settings-toggle-knob {
     transform: translateX(18px);
-    background: #000;
+    background: #fff;
 }
 
 .settings-list {
